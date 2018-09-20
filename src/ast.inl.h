@@ -2,13 +2,21 @@
 
 namespace ast {
 
-struct Node::Model {
+template <typename Visitor>
+struct AstNode<Visitor>::Model {
   virtual ~Model() = default;
   virtual void Visit(Visitor& visitor) const = 0;
 };
 
+template <typename Visitor>
+void AstNode<Visitor>::Visit(Visitor& visitor) const {
+  if (model_) model_->Visit(visitor);
+}
+
+template <typename Visitor>
 template <typename T>
-std::shared_ptr<const Node::Model> Node::Adapt(T&& value) {
+std::shared_ptr<const typename AstNode<Visitor>::Model> AstNode<Visitor>::Adapt(
+    T&& value) {
   struct Adaptor final : Model {
     Adaptor(T&& value) : value(std::move(value)) {}
     void Visit(Visitor& visitor) const override {

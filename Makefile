@@ -10,6 +10,7 @@ all: $(patsubst %, bin/%, ${BINARIES})
 MAIN_DEPS =  \
   ast  \
   parser  \
+	pretty  \
   main
 bin/main: $(patsubst %, obj/%.o, ${MAIN_DEPS})
 
