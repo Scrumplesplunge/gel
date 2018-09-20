@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "reader.h"
 
 #include <stdexcept>
 #include <string_view>
@@ -12,7 +13,7 @@ class SyntaxError : public std::runtime_error {
 
 class Parser {
  public:
-  Parser(std::string_view source) : remaining_(source) {}
+  Parser(Reader& reader) : reader_(&reader) {}
 
   ast::Identifier ParseIdentifier();
   ast::Integer ParseInteger();
@@ -29,12 +30,11 @@ class Parser {
   std::vector<ast::Statement> ParseStatementBlock(int indent);
 
   void CheckEnd();
-  void Consume(std::string_view expected);
+  void CheckConsume(std::string_view expected);
   void ConsumeNewline();
   void ConsumeIndent(int indent);
   void CheckNotEnd();
 
  private:
-
-  std::string_view remaining_;
+  Reader* reader_;
 };

@@ -1,6 +1,8 @@
 if (a + b) {
   do f()
   let x = 1 * 2 + 3
-} else {
+} else if (f(g(h()))) {
   y = 42
+} else {
+  do g(h(), 1)
 }
