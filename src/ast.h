@@ -20,6 +20,7 @@ struct Divide { Expression left, right; };
 struct FunctionCall { Identifier function; std::vector<Expression> arguments; };
 
 struct ExpressionVisitor {
+  void Visit(const Expression& expression) { expression.Visit(*this); }
   virtual void Visit(const Identifier&) = 0;
   virtual void Visit(const Integer&) = 0;
   virtual void Visit(const Add&) = 0;
@@ -38,6 +39,7 @@ struct DoFunction { FunctionCall function_call; };
 struct If { Expression condition; std::vector<Statement> if_true, if_false; };
 
 struct StatementVisitor {
+  void Visit(const Statement& statement) { statement.Visit(*this); }
   virtual void Visit(const DeclareVariable&) = 0;
   virtual void Visit(const Assign&) = 0;
   virtual void Visit(const DoFunction&) = 0;

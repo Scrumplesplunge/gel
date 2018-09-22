@@ -8,12 +8,13 @@ BINARIES =  \
 all: $(patsubst %, bin/%, ${BINARIES})
 
 MAIN_DEPS =  \
-  ast  \
-  parser  \
-  pretty  \
+	ast  \
+	operations  \
+	parser  \
+	pretty  \
 	reader  \
 	visitable  \
-  main
+	main
 bin/main: $(patsubst %, obj/%.o, ${MAIN_DEPS})
 
 -include ${DEPENDS}

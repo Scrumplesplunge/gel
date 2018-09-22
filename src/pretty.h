@@ -11,6 +11,7 @@ namespace tree {  // Pretty printers that show the syntax tree explicitly.
 class ExpressionPrinter : public ast::ExpressionVisitor {
  public:
   ExpressionPrinter(std::ostream& output) : output_(output) {}
+  using ExpressionVisitor::Visit;
   void Visit(const ast::Identifier&) override;
   void Visit(const ast::Integer&) override;
   void Visit(const ast::Add&) override;
@@ -29,6 +30,7 @@ class StatementPrinter : public ast::StatementVisitor {
  public:
   StatementPrinter(std::size_t indent, std::ostream& output)
       : indent_(indent, ' '), output_(output) {}
+  using StatementVisitor::Visit;
   void Visit(const ast::DeclareVariable&) override;
   void Visit(const ast::Assign&) override;
   void Visit(const ast::DoFunction&) override;

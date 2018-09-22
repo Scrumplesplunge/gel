@@ -14,9 +14,9 @@ void ExpressionPrinter::Visit(const ast::Integer& integer) {
 template <typename T>
 void ExpressionPrinter::VisitBinary(std::string_view type, const T& binary) {
   output_ << type << "{";
-  binary.left.Visit(*this);
+  Visit(binary.left);
   output_ << ", ";
-  binary.right.Visit(*this);
+  Visit(binary.right);
   output_ << "}";
 }
 
@@ -45,7 +45,7 @@ void ExpressionPrinter::Visit(const ast::FunctionCall& function_call) {
     } else {
       output_ << ", ";
     }
-    argument.Visit(*this);
+    Visit(argument);
   }
   output_ << "}}";
 }
