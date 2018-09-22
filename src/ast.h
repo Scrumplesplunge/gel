@@ -1,32 +1,15 @@
 #pragma once
 
+#include "visitable.h"
+
 #include <memory>
 #include <type_traits>
 #include <vector>
 
 namespace ast {
 
-template <typename Visitor>
-class AstNode {
- public:
-  // requires visitor->visit(T) to be valid.
-  template <typename T, typename = std::enable_if_t<
-                            !std::is_same_v<AstNode, std::decay_t<T>>>>
-  AstNode(T&& value) : model_(Adapt(std::forward<T>(value))) {}
-
-  void Visit(Visitor& visitor) const;
-
- private:
-  struct Model;
-
-  template <typename T>
-  static std::shared_ptr<const Model> Adapt(T&& value);
-
-  std::shared_ptr<const Model> model_;
-};
-
 struct ExpressionVisitor;
-using Expression = AstNode<ExpressionVisitor>;
+using Expression = visitable::Node<ExpressionVisitor>;
 
 struct Identifier { std::string_view name; };
 struct Integer { std::int64_t value; };
@@ -47,7 +30,7 @@ struct ExpressionVisitor {
 };
 
 struct StatementVisitor;
-using Statement = AstNode<StatementVisitor>;
+using Statement = visitable::Node<StatementVisitor>;
 
 struct DeclareVariable { Identifier identifier; Expression value; };
 struct Assign { Identifier identifier; Expression value; };
@@ -63,4 +46,5 @@ struct StatementVisitor {
 
 }  // namespace ast
 
-#include "ast.inl.h"
+extern template class visitable::Node<ast::ExpressionVisitor>;
+extern template class visitable::Node<ast::StatementVisitor>;

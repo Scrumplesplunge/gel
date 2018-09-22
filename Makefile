@@ -12,6 +12,7 @@ MAIN_DEPS =  \
   parser  \
   pretty  \
 	reader  \
+	visitable  \
   main
 bin/main: $(patsubst %, obj/%.o, ${MAIN_DEPS})
 
