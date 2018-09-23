@@ -19,7 +19,12 @@ class Parser {
   ast::Integer ParseInteger();
   std::vector<ast::Expression> ParseArgumentList();
   ast::Expression ParseTerm();
+  ast::Expression ParseUnary();
   ast::Expression ParseProduct();
+  ast::Expression ParseSum();
+  ast::Expression ParseComparison();
+  ast::Expression ParseConjunction();
+  ast::Expression ParseDisjunction();
   ast::Expression ParseExpression();
 
   ast::DeclareVariable ParseVariableDeclaration();

@@ -35,6 +35,15 @@ class Expression : public ast::ExpressionVisitor {
   void Visit(const ast::Multiply&) override;
   void Visit(const ast::Divide&) override;
   void Visit(const ast::FunctionCall&) override;
+  void Visit(const ast::CompareEq&) override;
+  void Visit(const ast::CompareNe&) override;
+  void Visit(const ast::CompareLe&) override;
+  void Visit(const ast::CompareLt&) override;
+  void Visit(const ast::CompareGe&) override;
+  void Visit(const ast::CompareGt&) override;
+  void Visit(const ast::LogicalNot&) override;
+  void Visit(const ast::LogicalAnd&) override;
+  void Visit(const ast::LogicalOr&) override;
 
   op::Sequence result() { return std::move(result_); };
 
@@ -120,6 +129,59 @@ void Expression::Visit(const ast::Divide& divide) {
   result_.push_back(op::Divide{});
 }
 
+void Expression::Visit(const ast::CompareEq& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareEq{});
+}
+
+void Expression::Visit(const ast::CompareNe& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareNe{});
+}
+
+void Expression::Visit(const ast::CompareLe& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareLe{});
+}
+
+void Expression::Visit(const ast::CompareLt& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareLt{});
+}
+
+void Expression::Visit(const ast::CompareGe& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareGe{});
+}
+
+void Expression::Visit(const ast::CompareGt& comparison) {
+  Visit(comparison.left);
+  Visit(comparison.right);
+  result_.push_back(op::CompareGt{});
+}
+
+void Expression::Visit(const ast::LogicalNot& expression) {
+  Visit(expression.argument);
+  result_.push_back(op::LogicalNot{});
+}
+
+void Expression::Visit(const ast::LogicalAnd& expression) {
+  Visit(expression.left);
+  Visit(expression.right);
+  result_.push_back(op::LogicalAnd{});
+}
+
+void Expression::Visit(const ast::LogicalOr& expression) {
+  Visit(expression.left);
+  Visit(expression.right);
+  result_.push_back(op::LogicalOr{});
+}
+
 void Expression::Visit(const ast::FunctionCall&) {
   throw std::runtime_error("FunctionCall not implemented.");
 }
@@ -170,6 +232,15 @@ class OperationPrinter : public op::Visitor {
   void Visit(const op::Subtract&) override;
   void Visit(const op::Multiply&) override;
   void Visit(const op::Divide&) override;
+  void Visit(const op::CompareEq&) override;
+  void Visit(const op::CompareNe&) override;
+  void Visit(const op::CompareLe&) override;
+  void Visit(const op::CompareLt&) override;
+  void Visit(const op::CompareGe&) override;
+  void Visit(const op::CompareGt&) override;
+  void Visit(const op::LogicalNot&) override;
+  void Visit(const op::LogicalAnd&) override;
+  void Visit(const op::LogicalOr&) override;
  private:
   std::ostream& output_;
 };
@@ -192,6 +263,24 @@ void OperationPrinter::Visit(const op::Add&) { output_ << "  add\n"; }
 void OperationPrinter::Visit(const op::Subtract&) { output_ << "  sub\n"; }
 void OperationPrinter::Visit(const op::Multiply&) { output_ << "  mul\n"; }
 void OperationPrinter::Visit(const op::Divide&) { output_ << "  div\n"; }
+void OperationPrinter::Visit(const op::CompareEq&) { output_ << "  ceq\n"; }
+void OperationPrinter::Visit(const op::CompareNe&) { output_ << "  cne\n"; }
+void OperationPrinter::Visit(const op::CompareLe&) { output_ << "  cle\n"; }
+void OperationPrinter::Visit(const op::CompareLt&) { output_ << "  clt\n"; }
+void OperationPrinter::Visit(const op::CompareGe&) { output_ << "  cge\n"; }
+void OperationPrinter::Visit(const op::CompareGt&) { output_ << "  cgt\n"; }
+
+void OperationPrinter::Visit(const op::LogicalNot&) {
+  output_ << "  logical-not\n";
+}
+
+void OperationPrinter::Visit(const op::LogicalAnd&) {
+  output_ << "  logical-and\n";
+}
+
+void OperationPrinter::Visit(const op::LogicalOr&) {
+  output_ << "  logical-or\n";
+}
 
 bool prompt(std::string_view text, std::string& line) {
   std::cout << text;

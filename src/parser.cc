@@ -26,7 +26,6 @@ static SyntaxError Error(Reader::Location location, std::string message) {
 }
 
 ast::Identifier Parser::ParseIdentifier() {
-  CheckNotEnd();
   auto begin = std::begin(*reader_);
   auto end = std::end(*reader_);
   auto i = std::find_if_not(begin, end,
@@ -47,7 +46,6 @@ ast::Identifier Parser::ParseIdentifier() {
 }
 
 ast::Integer Parser::ParseInteger() {
-  CheckNotEnd();
   const bool negative = reader_->Consume("-");
   auto begin = std::begin(*reader_);
   auto end = std::end(*reader_);
@@ -68,9 +66,7 @@ ast::Integer Parser::ParseInteger() {
 }
 
 std::vector<ast::Expression> Parser::ParseArgumentList() {
-  CheckNotEnd();
   CheckConsume("(");
-  CheckNotEnd();
   if (reader_->Consume(")")) return {};
   std::vector<ast::Expression> arguments;
   while (true) {
@@ -82,7 +78,6 @@ std::vector<ast::Expression> Parser::ParseArgumentList() {
 }
 
 ast::Expression Parser::ParseTerm() {
-  CheckNotEnd();
   // A term is either an integer, an identifier, or a subexpression surrounded
   // by parentheses.
   auto location = reader_->location();
@@ -92,6 +87,7 @@ ast::Expression Parser::ParseTerm() {
       throw Error(location, "No matching ')' for this '('.");
     return expression;
   }
+  CheckNotEnd();
   char lookahead = reader_->front();
   if (lookahead == '-' || std::isdigit(lookahead)) {
     return ParseInteger();
@@ -108,33 +104,82 @@ ast::Expression Parser::ParseTerm() {
   }
 }
 
+ast::Expression Parser::ParseUnary() {
+  if (reader_->Consume("!")) {
+    return ast::LogicalNot{ParseUnary()};
+  } else {
+    return ParseTerm();
+  }
+}
+
 ast::Expression Parser::ParseProduct() {
-  CheckNotEnd();
-  auto left = ParseTerm();
+  auto left = ParseUnary();
   while (true) {
     if (reader_->Consume(" * ")) {
-      left = ast::Multiply{left, ParseTerm()};
+      left = ast::Multiply{std::move(left), ParseTerm()};
     } else if (reader_->Consume(" / ")) {
-      left = ast::Divide{left, ParseTerm()};
+      left = ast::Divide{std::move(left), ParseTerm()};
     } else {
       return left;
     }
   }
 }
 
-ast::Expression Parser::ParseExpression() {
-  CheckNotEnd();
+ast::Expression Parser::ParseSum() {
   auto left = ParseProduct();
   while (true) {
     if (reader_->Consume(" + ")) {
       left = ast::Add{left, ParseProduct()};
     } else if (reader_->Consume(" - ")) {
-      left = ast::Subtract{left, ParseProduct()};
+      left = ast::Subtract{std::move(left), ParseProduct()};
     } else {
       return left;
     }
   }
 }
+
+ast::Expression Parser::ParseComparison() {
+  auto left = ParseSum();
+  if (reader_->Consume(" == ")) {
+    return ast::CompareEq{std::move(left), ParseSum()};
+  } else if (reader_->Consume(" != ")) {
+    return ast::CompareNe{std::move(left), ParseSum()};
+  } else if (reader_->Consume(" <= ")) {
+    return ast::CompareLe{std::move(left), ParseSum()};
+  } else if (reader_->Consume(" < ")) {
+    return ast::CompareLt{std::move(left), ParseSum()};
+  } else if (reader_->Consume(" >= ")) {
+    return ast::CompareGe{std::move(left), ParseSum()};
+  } else if (reader_->Consume(" > ")) {
+    return ast::CompareGt{std::move(left), ParseSum()};
+  } else {
+    return left;
+  }
+}
+
+ast::Expression Parser::ParseConjunction() {
+  auto left = ParseComparison();
+  while (true) {
+    if (reader_->Consume(" && ")) {
+      left = ast::LogicalAnd{std::move(left), ParseComparison()};
+    } else {
+      return left;
+    }
+  }
+}
+
+ast::Expression Parser::ParseDisjunction() {
+  auto left = ParseConjunction();
+  while (true) {
+    if (reader_->Consume(" || ")) {
+      left = ast::LogicalOr{std::move(left), ParseConjunction()};
+    } else {
+      return left;
+    }
+  }
+}
+
+ast::Expression Parser::ParseExpression() { return ParseDisjunction(); }
 
 ast::DeclareVariable Parser::ParseVariableDeclaration() {
   CheckConsume("let ");

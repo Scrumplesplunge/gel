@@ -50,6 +50,44 @@ void ExpressionPrinter::Visit(const ast::FunctionCall& function_call) {
   output_ << "}}";
 }
 
+void ExpressionPrinter::Visit(const ast::CompareEq& comparison) {
+  VisitBinary("CompareEq", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::CompareNe& comparison) {
+  VisitBinary("CompareNe", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::CompareLe& comparison) {
+  VisitBinary("CompareLe", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::CompareLt& comparison) {
+  VisitBinary("CompareLt", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::CompareGe& comparison) {
+  VisitBinary("CompareGe", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::CompareGt& comparison) {
+  VisitBinary("CompareGt", comparison);
+}
+
+void ExpressionPrinter::Visit(const ast::LogicalNot& expression) {
+  output_ << "LogicalNot{";
+  Visit(expression.argument);
+  output_ << "}";
+}
+
+void ExpressionPrinter::Visit(const ast::LogicalAnd& expression) {
+  VisitBinary("LogicalAnd", expression);
+}
+
+void ExpressionPrinter::Visit(const ast::LogicalOr& expression) {
+  VisitBinary("LogicalOr", expression);
+}
+
 void StatementPrinter::Visit(const ast::DeclareVariable& declaration) {
   output_ << "DeclareVariable {\n"
           << indent_ << "  .identifier = \"" << declaration.identifier.name

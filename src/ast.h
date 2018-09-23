@@ -18,6 +18,15 @@ struct Subtract { Expression left, right; };
 struct Multiply { Expression left, right; };
 struct Divide { Expression left, right; };
 struct FunctionCall { Identifier function; std::vector<Expression> arguments; };
+struct CompareEq { Expression left, right; };
+struct CompareNe { Expression left, right; };
+struct CompareLe { Expression left, right; };
+struct CompareLt { Expression left, right; };
+struct CompareGe { Expression left, right; };
+struct CompareGt { Expression left, right; };
+struct LogicalNot { Expression argument; };
+struct LogicalAnd { Expression left, right; };
+struct LogicalOr { Expression left, right; };
 
 struct ExpressionVisitor {
   void Visit(const Expression& expression) { expression.Visit(*this); }
@@ -28,6 +37,15 @@ struct ExpressionVisitor {
   virtual void Visit(const Multiply&) = 0;
   virtual void Visit(const Divide&) = 0;
   virtual void Visit(const FunctionCall&) = 0;
+  virtual void Visit(const CompareEq&) = 0;
+  virtual void Visit(const CompareNe&) = 0;
+  virtual void Visit(const CompareLe&) = 0;
+  virtual void Visit(const CompareLt&) = 0;
+  virtual void Visit(const CompareGe&) = 0;
+  virtual void Visit(const CompareGt&) = 0;
+  virtual void Visit(const LogicalNot&) = 0;
+  virtual void Visit(const LogicalAnd&) = 0;
+  virtual void Visit(const LogicalOr&) = 0;
 };
 
 struct StatementVisitor;
