@@ -38,10 +38,14 @@ struct CompareLt {};
 struct CompareGe {};
 struct CompareGt {};
 
-// Boolean operations.
-struct LogicalNot {};
-struct LogicalAnd {};
-struct LogicalOr {};
+// Control flow operations.
+struct Label { std::string name; };
+struct Jump { std::string label; };
+
+// Conditionally jump. If the branch is taken, the condition value remains on
+// the stack. Otherwise, it is removed.
+struct JumpIfZero { std::string label; };
+struct JumpIfNonZero { std::string label; };
 
 struct Visitor {
   void Visit(const Node& node) { node.Visit(*this); }
@@ -60,9 +64,10 @@ struct Visitor {
   virtual void Visit(const CompareLt&) = 0;
   virtual void Visit(const CompareGe&) = 0;
   virtual void Visit(const CompareGt&) = 0;
-  virtual void Visit(const LogicalNot&) = 0;
-  virtual void Visit(const LogicalAnd&) = 0;
-  virtual void Visit(const LogicalOr&) = 0;
+  virtual void Visit(const Label&) = 0;
+  virtual void Visit(const Jump&) = 0;
+  virtual void Visit(const JumpIfZero&) = 0;
+  virtual void Visit(const JumpIfNonZero&) = 0;
 };
 
 }  // namespace op

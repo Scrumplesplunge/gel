@@ -9,6 +9,14 @@
 
 namespace codegen {
 
+class Context {
+ public:
+  std::string Label(std::string_view prefix);
+
+ private:
+  std::map<std::string, int, std::less<>> labels_;
+};
+
 class LexicalScope {
  public:
   struct Entry {
@@ -25,7 +33,13 @@ class LexicalScope {
 
 class Expression : public ast::ExpressionVisitor {
  public:
-  Expression(const LexicalScope& scope) : scope_(scope) {}
+  Expression(Context* context, const LexicalScope& scope)
+      : context_(context), scope_(scope) {}
+
+  Expression(const Expression&) = delete;
+  Expression(Expression&&) = delete;
+  Expression& operator=(const Expression&) = delete;
+  Expression& operator=(Expression&&) = delete;
 
   using ExpressionVisitor::Visit;
   void Visit(const ast::Identifier&) override;
@@ -48,13 +62,20 @@ class Expression : public ast::ExpressionVisitor {
   op::Sequence result() { return std::move(result_); };
 
  private:
+  Context* context_;
   const LexicalScope& scope_;
   op::Sequence result_;
 };
 
 class Statement : public ast::StatementVisitor {
  public:
-  Statement(LexicalScope* scope) : scope_(scope) {}
+  Statement(Context* context, LexicalScope* scope)
+      : context_(context), scope_(scope) {}
+
+  Statement(const Statement&) = delete;
+  Statement(Statement&&) = delete;
+  Statement& operator=(const Statement&) = delete;
+  Statement& operator=(Statement&&) = delete;
 
   using StatementVisitor::Visit;
   void Visit(const ast::DeclareVariable&) override;
@@ -68,11 +89,18 @@ class Statement : public ast::StatementVisitor {
   void Assign(const LexicalScope::Entry& destination,
               const ast::Expression& value);
 
+  Context* context_;
   LexicalScope* scope_;
   op::Sequence result_;
 };
 
 // Implementation
+
+std::string Context::Label(std::string_view prefix) {
+  auto [i, j] = labels_.equal_range(prefix);
+  if (i == j) i = labels_.emplace_hint(i, prefix, 0);
+  return std::string{prefix} + std::to_string(i->second++);
+}
 
 const LexicalScope::Entry& LexicalScope::Define(std::string_view name) {
   auto [i, j] = entries_.equal_range(name);
@@ -167,19 +195,24 @@ void Expression::Visit(const ast::CompareGt& comparison) {
 
 void Expression::Visit(const ast::LogicalNot& expression) {
   Visit(expression.argument);
-  result_.push_back(op::LogicalNot{});
+  result_.push_back(op::Integer{0});
+  result_.push_back(op::CompareEq{});
 }
 
 void Expression::Visit(const ast::LogicalAnd& expression) {
+  std::string end = context_->Label("LogicalAnd");
   Visit(expression.left);
+  result_.push_back(op::JumpIfZero{end});
   Visit(expression.right);
-  result_.push_back(op::LogicalAnd{});
+  result_.push_back(op::Label{end});
 }
 
 void Expression::Visit(const ast::LogicalOr& expression) {
+  std::string end = context_->Label("LogicalOr");
   Visit(expression.left);
+  result_.push_back(op::JumpIfNonZero{end});
   Visit(expression.right);
-  result_.push_back(op::LogicalOr{});
+  result_.push_back(op::Label{end});
 }
 
 void Expression::Visit(const ast::FunctionCall&) {
@@ -211,7 +244,7 @@ void Statement::Visit(const ast::If&) {
 void Statement::Assign(const LexicalScope::Entry& destination,
                        const ast::Expression& value) {
   result_.push_back(op::Frame{destination.offset});
-  Expression codegen{*scope_};
+  Expression codegen{context_, *scope_};
   value.Visit(codegen);
   result_.push_back(codegen.result());
   result_.push_back(op::Store{});
@@ -238,9 +271,10 @@ class OperationPrinter : public op::Visitor {
   void Visit(const op::CompareLt&) override;
   void Visit(const op::CompareGe&) override;
   void Visit(const op::CompareGt&) override;
-  void Visit(const op::LogicalNot&) override;
-  void Visit(const op::LogicalAnd&) override;
-  void Visit(const op::LogicalOr&) override;
+  void Visit(const op::Label&) override;
+  void Visit(const op::Jump&) override;
+  void Visit(const op::JumpIfZero&) override;
+  void Visit(const op::JumpIfNonZero&) override;
  private:
   std::ostream& output_;
 };
@@ -270,16 +304,20 @@ void OperationPrinter::Visit(const op::CompareLt&) { output_ << "  clt\n"; }
 void OperationPrinter::Visit(const op::CompareGe&) { output_ << "  cge\n"; }
 void OperationPrinter::Visit(const op::CompareGt&) { output_ << "  cgt\n"; }
 
-void OperationPrinter::Visit(const op::LogicalNot&) {
-  output_ << "  logical-not\n";
+void OperationPrinter::Visit(const op::Label& label) {
+  output_ << label.name << ":\n";
 }
 
-void OperationPrinter::Visit(const op::LogicalAnd&) {
-  output_ << "  logical-and\n";
+void OperationPrinter::Visit(const op::Jump& jump) {
+  output_ << "  jump " << jump.label << "\n";
 }
 
-void OperationPrinter::Visit(const op::LogicalOr&) {
-  output_ << "  logical-or\n";
+void OperationPrinter::Visit(const op::JumpIfZero& jump) {
+  output_ << "  jz " << jump.label << "\n";
+}
+
+void OperationPrinter::Visit(const op::JumpIfNonZero& jump) {
+  output_ << "  jnz " << jump.label << "\n";
 }
 
 bool prompt(std::string_view text, std::string& line) {
@@ -288,6 +326,7 @@ bool prompt(std::string_view text, std::string& line) {
 }
 
 int main() {
+  codegen::Context context;
   codegen::LexicalScope scope;
   std::string line;
   while (prompt(">> ", line)) {
@@ -296,7 +335,7 @@ int main() {
     try {
       auto statement = parser.ParseStatement(0);
       parser.CheckEnd();
-      codegen::Statement codegen(&scope);
+      codegen::Statement codegen(&context, &scope);
       codegen.Visit(statement);
       OperationPrinter printer{std::cout};
       printer.Visit(codegen.result());
