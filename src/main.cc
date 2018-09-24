@@ -19,6 +19,22 @@ class Context {
 
 class LexicalScope {
  public:
+  enum Type {
+    BASE,
+    // Allocate within the same frame as the parent scope. This is used for
+    // nested blocks such as if-statements.
+    EXTEND,
+  };
+
+  LexicalScope() = default;
+  LexicalScope(Type type, LexicalScope& parent);
+  ~LexicalScope();
+
+  LexicalScope(const LexicalScope&) = delete;
+  LexicalScope(LexicalScope&&) = delete;
+  LexicalScope& operator=(const LexicalScope&) = delete;
+  LexicalScope& operator=(LexicalScope&&) = delete;
+
   struct Entry {
     int offset = 0;
   };
@@ -26,7 +42,17 @@ class LexicalScope {
   const Entry& Define(std::string_view name);
   const Entry* Lookup(std::string_view name) const;
 
+  // This is code which should be performed on entry to the scope or on exit
+  // from the scope. These functions will not work properly if they are used
+  // before all variables in the scope have been defined.
+  op::Sequence EntryCode() const;
+
  private:
+  void ReportOffset(int offset);
+
+  Type type_ = BASE;
+  LexicalScope* parent_ = nullptr;
+  int min_offset_ = 0;
   int current_offset_ = 0;
   std::map<std::string, Entry, std::less<>> entries_;
 };
@@ -83,11 +109,13 @@ class Statement : public ast::StatementVisitor {
   void Visit(const ast::DoFunction&) override;
   void Visit(const ast::If&) override;
 
-  op::Sequence result() { return std::move(result_); };
+  op::Sequence ConsumeResult();
 
  private:
   void Assign(const LexicalScope::Entry& destination,
               const ast::Expression& value);
+
+  void Visit(const std::vector<ast::Statement>& statements);
 
   Context* context_;
   LexicalScope* scope_;
@@ -102,11 +130,18 @@ std::string Context::Label(std::string_view prefix) {
   return std::string{prefix} + std::to_string(i->second++);
 }
 
+LexicalScope::LexicalScope(Type type, LexicalScope& parent)
+    : type_(type), parent_(&parent) {}
+
+LexicalScope::~LexicalScope() {
+  if (type_ == EXTEND) parent_->ReportOffset(current_offset_);
+}
+
 const LexicalScope::Entry& LexicalScope::Define(std::string_view name) {
   auto [i, j] = entries_.equal_range(name);
   if (i == j) {
-    constexpr int kIntSize = 4;
-    current_offset_ -= kIntSize;
+    current_offset_--;
+    ReportOffset(current_offset_);
     return entries_.emplace_hint(i, name, Entry{current_offset_})->second;
   } else {
     throw std::runtime_error("Variable '" + std::string{name} +
@@ -117,6 +152,20 @@ const LexicalScope::Entry& LexicalScope::Define(std::string_view name) {
 const LexicalScope::Entry* LexicalScope::Lookup(std::string_view name) const {
   auto i = entries_.find(name);
   return i == entries_.end() ? nullptr : &i->second;
+}
+
+op::Sequence LexicalScope::EntryCode() const {
+  switch (type_) {
+    case BASE:
+      return {op::Adjust{min_offset_}};
+    case EXTEND:
+      // No code for extending; it is handled by the underlying scope.
+      return {};
+  }
+}
+
+void LexicalScope::ReportOffset(int offset) {
+  min_offset_ = std::min(min_offset_, offset);
 }
 
 void Expression::Visit(const ast::Identifier& identifier) {
@@ -200,7 +249,7 @@ void Expression::Visit(const ast::LogicalNot& expression) {
 }
 
 void Expression::Visit(const ast::LogicalAnd& expression) {
-  std::string end = context_->Label("LogicalAnd");
+  std::string end = context_->Label("AndEnd");
   Visit(expression.left);
   result_.push_back(op::JumpIfZero{end});
   Visit(expression.right);
@@ -208,7 +257,7 @@ void Expression::Visit(const ast::LogicalAnd& expression) {
 }
 
 void Expression::Visit(const ast::LogicalOr& expression) {
-  std::string end = context_->Label("LogicalOr");
+  std::string end = context_->Label("OrEnd");
   Visit(expression.left);
   result_.push_back(op::JumpIfNonZero{end});
   Visit(expression.right);
@@ -237,8 +286,36 @@ void Statement::Visit(const ast::DoFunction&) {
   throw std::runtime_error("DoFunction not implemented.");
 }
 
-void Statement::Visit(const ast::If&) {
-  throw std::runtime_error("If not implemented.");
+void Statement::Visit(const ast::If& if_statement) {
+  std::string if_false = context_->Label("IfFalse");
+  std::string end = context_->Label("IfEnd");
+  Expression codegen{context_, *scope_};
+  if_statement.condition.Visit(codegen);
+  result_.push_back(codegen.result());
+  result_.push_back(op::JumpIfZero{if_false});
+  {
+    LexicalScope if_true_scope{LexicalScope::EXTEND, *scope_};
+    Statement codegen{context_, &if_true_scope};
+    codegen.Visit(if_statement.if_true);
+    auto code = codegen.ConsumeResult();
+    result_.insert(result_.end(), std::begin(code), std::end(code));
+  }
+  result_.push_back(op::Jump{end});
+  result_.push_back(op::Label{if_false});
+  result_.push_back(op::Adjust{1});
+  {
+    LexicalScope if_false_scope{LexicalScope::EXTEND, *scope_};
+    Statement codegen{context_, &if_false_scope};
+    codegen.Visit(if_statement.if_false);
+    auto code = codegen.ConsumeResult();
+    result_.insert(result_.end(), std::begin(code), std::end(code));
+  }
+  result_.push_back(op::Label{end});
+}
+
+op::Sequence Statement::ConsumeResult() {
+  result_.insert(result_.begin(), scope_->EntryCode());
+  return std::move(result_);
 }
 
 void Statement::Assign(const LexicalScope::Entry& destination,
@@ -250,6 +327,10 @@ void Statement::Assign(const LexicalScope::Entry& destination,
   result_.push_back(op::Store{});
 }
 
+void Statement::Visit(const std::vector<ast::Statement>& statements) {
+  for (const auto& statement : statements) Visit(statement);
+}
+
 }  // namespace codegen
 
 class OperationPrinter : public op::Visitor {
@@ -259,6 +340,7 @@ class OperationPrinter : public op::Visitor {
   void Visit(const op::Sequence&) override;
   void Visit(const op::Integer&) override;
   void Visit(const op::Frame&) override;
+  void Visit(const op::Adjust&) override;
   void Visit(const op::Load&) override;
   void Visit(const op::Store&) override;
   void Visit(const op::Add&) override;
@@ -289,6 +371,10 @@ void OperationPrinter::Visit(const op::Integer& integer) {
 
 void OperationPrinter::Visit(const op::Frame& frame) {
   output_ << "  frame " << frame.offset << "\n";
+}
+
+void OperationPrinter::Visit(const op::Adjust& adjust) {
+  output_ << "  adjust " << adjust.size << "\n";
 }
 
 void OperationPrinter::Visit(const op::Load&) { output_ << "  load\n"; }
@@ -326,21 +412,20 @@ bool prompt(std::string_view text, std::string& line) {
 }
 
 int main() {
-  codegen::Context context;
-  codegen::LexicalScope scope;
-  std::string line;
-  while (prompt(">> ", line)) {
-    Reader reader{"stdin", line};
-    Parser parser{reader};
-    try {
-      auto statement = parser.ParseStatement(0);
-      parser.CheckEnd();
-      codegen::Statement codegen(&context, &scope);
-      codegen.Visit(statement);
-      OperationPrinter printer{std::cout};
-      printer.Visit(codegen.result());
-    } catch (const std::exception& error) {
-      std::cout << error.what() << "\n";
-    }
+  std::string input{std::istreambuf_iterator<char>{std::cin}, {}};
+  Reader reader{"stdin", input};
+  Parser parser{reader};
+  try {
+    codegen::Context context;
+    codegen::LexicalScope scope;
+    auto statement = parser.ParseStatement(0);
+    parser.ConsumeNewline();
+    parser.CheckEnd();
+    codegen::Statement codegen(&context, &scope);
+    codegen.Visit(statement);
+    OperationPrinter printer{std::cout};
+    printer.Visit(codegen.ConsumeResult());
+  } catch (const std::exception& error) {
+    std::cout << error.what() << "\n";
   }
 }

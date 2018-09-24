@@ -1,8 +1,9 @@
-if (a + b) {
-  do f()
+if (3 == 4) {
+  let f = 9
   let x = 1 * 2 + 3
-} else if (f(g(h()))) {
-  y = 42
+} else if (42) {
+  let y = 42
 } else {
-  do g(h(), 1)
+  let g = 9
+  let h = g
 }

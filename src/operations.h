@@ -17,6 +17,10 @@ struct Integer { std::int64_t value; };
 // Push an address relative to the stack frame.
 struct Frame { int offset; };
 
+// Adjust the stack by the given amount. A negative number reserves space, while
+// a positive number returns space.
+struct Adjust { int size; };
+
 // Pop an address, push the value stored at that address.
 struct Load {};
 
@@ -52,6 +56,7 @@ struct Visitor {
   virtual void Visit(const Sequence&) = 0;
   virtual void Visit(const Integer&) = 0;
   virtual void Visit(const Frame&) = 0;
+  virtual void Visit(const Adjust&) = 0;
   virtual void Visit(const Load&) = 0;
   virtual void Visit(const Store&) = 0;
   virtual void Visit(const Add&) = 0;
