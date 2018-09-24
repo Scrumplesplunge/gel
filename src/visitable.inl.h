@@ -20,7 +20,16 @@ std::shared_ptr<const typename Node<Visitor>::Model> Node<Visitor>::Adapt(
   struct Adaptor final : Model {
     Adaptor(T&& value) : value(std::move(value)) {}
     void Visit(Visitor& visitor) const override {
-      visitor.Visit(value);
+      // Oh boy, this is possibly my favourite crazy C++ thing that I've come
+      // across in all my time using the language. If I don't explicitly force
+      // the Visit function to perfectly match the signature here by creating
+      // a member function pointer, we might resolve an overload which takes
+      // Node<Visitor>. If this can happen, suddenly every single type will
+      // successfully assign into a Node<Visitor> and compile successfully, but
+      // will result in infinite recursion the moment Visit is called.
+      using VisitFunction = void (Visitor::*)(const T&);
+      constexpr VisitFunction visit = &Visitor::Visit;
+      (visitor.*visit)(value);
     }
     T value;
   };
