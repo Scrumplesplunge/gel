@@ -78,6 +78,7 @@ class OperationPrinter : public op::Visitor {
   void Visit(const op::Jump&) override;
   void Visit(const op::JumpIfZero&) override;
   void Visit(const op::JumpIfNonZero&) override;
+  void Visit(const op::PrintDecimal&) override;
  private:
   std::ostream& output_;
 };

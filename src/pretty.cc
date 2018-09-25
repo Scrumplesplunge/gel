@@ -195,4 +195,8 @@ void OperationPrinter::Visit(const op::JumpIfNonZero& jump) {
   output_ << "  jnz " << jump.label << "\n";
 }
 
+void OperationPrinter::Visit(const op::PrintDecimal&) {
+  output_ << "  print\n";
+}
+
 }  // namespace pretty

@@ -51,6 +51,9 @@ struct Jump { std::string label; };
 struct JumpIfZero { std::string label; };
 struct JumpIfNonZero { std::string label; };
 
+// Pop an integer and print it.
+struct PrintDecimal {};
+
 struct Visitor {
   void Visit(const Node& node) { node.Visit(*this); }
   virtual void Visit(const Sequence&) = 0;
@@ -73,6 +76,7 @@ struct Visitor {
   virtual void Visit(const Jump&) = 0;
   virtual void Visit(const JumpIfZero&) = 0;
   virtual void Visit(const JumpIfNonZero&) = 0;
+  virtual void Visit(const PrintDecimal&) = 0;
 };
 
 }  // namespace op

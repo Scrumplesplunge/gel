@@ -160,8 +160,16 @@ void Statement::Visit(const ast::Assign& assignment) {
   }
 }
 
-void Statement::Visit(const ast::DoFunction&) {
-  throw std::runtime_error("DoFunction not implemented.");
+void Statement::Visit(const ast::DoFunction& do_function) {
+  if (do_function.function_call.function.name == "print" &&
+      do_function.function_call.arguments.size() == 1) {
+    Expression codegen{context_, *scope_};
+    codegen.Visit(do_function.function_call.arguments[0]);
+    result_.push_back(codegen.result());
+    result_.push_back(op::PrintDecimal{});
+  } else {
+    throw std::runtime_error("DoFunction not implemented.");
+  }
 }
 
 void Statement::Visit(const ast::If& if_statement) {

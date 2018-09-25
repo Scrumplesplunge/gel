@@ -1,9 +1,12 @@
 if (3 == 4) {
   let f = 9
   let x = 1 * 2 + 3
+  do print(x + f)
 } else if (42) {
   let y = 42
+  do print(y)
 } else {
   let g = 9
   let h = g
+  do print(h)
 }
