@@ -9,6 +9,7 @@ all: $(patsubst %, bin/%, ${BINARIES})
 
 MAIN_DEPS =  \
 	ast  \
+	code_generation  \
 	operations  \
 	parser  \
 	pretty  \

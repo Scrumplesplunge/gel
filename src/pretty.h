@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "operations.h"
 
 #include <iostream>
 #include <string>
@@ -52,4 +53,33 @@ class StatementPrinter : public ast::StatementVisitor {
 };
 
 }  // namespace tree
+
+class OperationPrinter : public op::Visitor {
+ public:
+  OperationPrinter(std::ostream& output) : output_(output) {}
+  using Visitor::Visit;
+  void Visit(const op::Sequence&) override;
+  void Visit(const op::Integer&) override;
+  void Visit(const op::Frame&) override;
+  void Visit(const op::Adjust&) override;
+  void Visit(const op::Load&) override;
+  void Visit(const op::Store&) override;
+  void Visit(const op::Add&) override;
+  void Visit(const op::Subtract&) override;
+  void Visit(const op::Multiply&) override;
+  void Visit(const op::Divide&) override;
+  void Visit(const op::CompareEq&) override;
+  void Visit(const op::CompareNe&) override;
+  void Visit(const op::CompareLe&) override;
+  void Visit(const op::CompareLt&) override;
+  void Visit(const op::CompareGe&) override;
+  void Visit(const op::CompareGt&) override;
+  void Visit(const op::Label&) override;
+  void Visit(const op::Jump&) override;
+  void Visit(const op::JumpIfZero&) override;
+  void Visit(const op::JumpIfNonZero&) override;
+ private:
+  std::ostream& output_;
+};
+
 }  // namespace pretty

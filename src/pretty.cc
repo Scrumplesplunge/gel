@@ -149,4 +149,50 @@ void StatementPrinter::Visit(const ast::If& if_statement) {
 }
 
 }  // namespace tree
+
+void OperationPrinter::Visit(const op::Sequence& sequence) {
+  for (const auto& operation : sequence) Visit(operation);
+}
+
+void OperationPrinter::Visit(const op::Integer& integer) {
+  output_ << "  push " << integer.value << "\n";
+}
+
+void OperationPrinter::Visit(const op::Frame& frame) {
+  output_ << "  frame " << frame.offset << "\n";
+}
+
+void OperationPrinter::Visit(const op::Adjust& adjust) {
+  output_ << "  adjust " << adjust.size << "\n";
+}
+
+void OperationPrinter::Visit(const op::Load&) { output_ << "  load\n"; }
+void OperationPrinter::Visit(const op::Store&) { output_ << "  store\n"; }
+void OperationPrinter::Visit(const op::Add&) { output_ << "  add\n"; }
+void OperationPrinter::Visit(const op::Subtract&) { output_ << "  sub\n"; }
+void OperationPrinter::Visit(const op::Multiply&) { output_ << "  mul\n"; }
+void OperationPrinter::Visit(const op::Divide&) { output_ << "  div\n"; }
+void OperationPrinter::Visit(const op::CompareEq&) { output_ << "  ceq\n"; }
+void OperationPrinter::Visit(const op::CompareNe&) { output_ << "  cne\n"; }
+void OperationPrinter::Visit(const op::CompareLe&) { output_ << "  cle\n"; }
+void OperationPrinter::Visit(const op::CompareLt&) { output_ << "  clt\n"; }
+void OperationPrinter::Visit(const op::CompareGe&) { output_ << "  cge\n"; }
+void OperationPrinter::Visit(const op::CompareGt&) { output_ << "  cgt\n"; }
+
+void OperationPrinter::Visit(const op::Label& label) {
+  output_ << label.name << ":\n";
+}
+
+void OperationPrinter::Visit(const op::Jump& jump) {
+  output_ << "  jump " << jump.label << "\n";
+}
+
+void OperationPrinter::Visit(const op::JumpIfZero& jump) {
+  output_ << "  jz " << jump.label << "\n";
+}
+
+void OperationPrinter::Visit(const op::JumpIfNonZero& jump) {
+  output_ << "  jnz " << jump.label << "\n";
+}
+
 }  // namespace pretty
