@@ -42,7 +42,7 @@ ast::Identifier Parser::ParseIdentifier() {
   if (name.empty() || !std::isalpha(name[0]))
     throw Error(location, "Invalid identifier: " + std::string{name});
   reader_->remove_prefix(length);
-  return ast::Identifier{name};
+  return ast::Identifier{std::string{name}};
 }
 
 ast::Integer Parser::ParseInteger() {
@@ -186,14 +186,14 @@ ast::DeclareVariable Parser::ParseVariableDeclaration() {
   auto identifier = ParseIdentifier();
   CheckConsume(" = ");
   auto value = ParseExpression();
-  return ast::DeclareVariable{std::move(identifier), std::move(value)};
+  return ast::DeclareVariable{std::move(identifier.name), std::move(value)};
 }
 
 ast::Assign Parser::ParseAssignment() {
   auto identifier = ParseIdentifier();
   CheckConsume(" = ");
   auto value = ParseExpression();
-  return ast::Assign{std::move(identifier), std::move(value)};
+  return ast::Assign{std::move(identifier.name), std::move(value)};
 }
 
 ast::DoFunction Parser::ParseDoFunction() {

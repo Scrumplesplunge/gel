@@ -147,16 +147,16 @@ void Expression::Visit(const ast::FunctionCall&) {
 }
 
 void Statement::Visit(const ast::DeclareVariable& declaration) {
-  const auto& entry = scope_->Define(declaration.identifier.name);
+  const auto& entry = scope_->Define(declaration.name);
   Assign(entry, declaration.value);
 }
 
 void Statement::Visit(const ast::Assign& assignment) {
-  if (auto* entry = scope_->Lookup(assignment.identifier.name)) {
+  if (auto* entry = scope_->Lookup(assignment.variable)) {
     Assign(*entry, assignment.value);
   } else {
     throw std::runtime_error("No such variable '" +
-                             std::string{assignment.identifier.name} + "'.");
+                             std::string{assignment.variable} + "'.");
   }
 }
 

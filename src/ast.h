@@ -11,7 +11,7 @@ namespace ast {
 struct ExpressionVisitor;
 using Expression = visitable::Node<ExpressionVisitor>;
 
-struct Identifier { std::string_view name; };
+struct Identifier { std::string name; };
 struct Integer { std::int64_t value; };
 struct Add { Expression left, right; };
 struct Subtract { Expression left, right; };
@@ -51,8 +51,8 @@ struct ExpressionVisitor {
 struct StatementVisitor;
 using Statement = visitable::Node<StatementVisitor>;
 
-struct DeclareVariable { Identifier identifier; Expression value; };
-struct Assign { Identifier identifier; Expression value; };
+struct DeclareVariable { std::string name; Expression value; };
+struct Assign { std::string variable; Expression value; };
 struct DoFunction { FunctionCall function_call; };
 struct If { Expression condition; std::vector<Statement> if_true, if_false; };
 

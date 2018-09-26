@@ -90,8 +90,7 @@ void ExpressionPrinter::Visit(const ast::LogicalOr& expression) {
 
 void StatementPrinter::Visit(const ast::DeclareVariable& declaration) {
   output_ << "DeclareVariable {\n"
-          << indent_ << "  .identifier = \"" << declaration.identifier.name
-          << "\"\n"
+          << indent_ << "  .identifier = \"" << declaration.name << "\"\n"
           << indent_ << "  .value = ";
   ExpressionPrinter printer{output_};
   declaration.value.Visit(printer);
@@ -100,8 +99,7 @@ void StatementPrinter::Visit(const ast::DeclareVariable& declaration) {
 
 void StatementPrinter::Visit(const ast::Assign& assignment) {
   output_ << "Assign {\n"
-          << indent_ << "  .identifier = \"" << assignment.identifier.name
-          << "\"\n"
+          << indent_ << "  .identifier = \"" << assignment.variable << "\"\n"
           << indent_ << "  .value = ";
   ExpressionPrinter printer{output_};
   assignment.value.Visit(printer);
