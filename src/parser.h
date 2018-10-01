@@ -27,12 +27,16 @@ class Parser {
   ast::Expression ParseDisjunction();
   ast::Expression ParseExpression();
 
-  ast::DeclareVariable ParseVariableDeclaration();
+  ast::DefineVariable ParseVariableDefinition();
   ast::Assign ParseAssignment();
   ast::DoFunction ParseDoFunction();
   ast::If ParseIfStatement(int indent);
   ast::Statement ParseStatement(int indent);
   std::vector<ast::Statement> ParseStatementBlock(int indent);
+
+  std::vector<std::string> ParseParameterList();
+  ast::DefineFunction ParseFunctionDefinition();
+  std::vector<ast::DefineFunction> ParseProgram();
 
   void CheckEnd();
   void CheckConsume(std::string_view expected);

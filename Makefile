@@ -4,18 +4,16 @@ include rules.mk
 .PHONY: all
 
 BINARIES =  \
-  main
+  gel
 all: $(patsubst %, bin/%, ${BINARIES})
 
-MAIN_DEPS =  \
+GEL_DEPS =  \
 	ast  \
-	code_generation  \
-	operations  \
 	parser  \
-	pretty  \
 	reader  \
+	target-c  \
 	visitable  \
 	main
-bin/main: $(patsubst %, obj/%.o, ${MAIN_DEPS})
+bin/gel: $(patsubst %, obj/%.o, ${GEL_DEPS})
 
 -include ${DEPENDS}

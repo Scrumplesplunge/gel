@@ -51,17 +51,35 @@ struct ExpressionVisitor {
 struct StatementVisitor;
 using Statement = visitable::Node<StatementVisitor>;
 
-struct DeclareVariable { std::string name; Expression value; };
+struct DefineVariable { std::string name; Expression value; };
 struct Assign { std::string variable; Expression value; };
 struct DoFunction { FunctionCall function_call; };
 struct If { Expression condition; std::vector<Statement> if_true, if_false; };
+struct ReturnVoid {};
+struct Return { Expression value; };
 
 struct StatementVisitor {
   void Visit(const Statement& statement) { statement.Visit(*this); }
-  virtual void Visit(const DeclareVariable&) = 0;
+  virtual void Visit(const DefineVariable&) = 0;
   virtual void Visit(const Assign&) = 0;
   virtual void Visit(const DoFunction&) = 0;
   virtual void Visit(const If&) = 0;
+  virtual void Visit(const ReturnVoid&) = 0;
+  virtual void Visit(const Return&) = 0;
+};
+
+struct TopLevelVisitor;
+using TopLevel = visitable::Node<TopLevelVisitor>;
+
+struct DefineFunction {
+  std::string name;
+  std::vector<std::string> parameters;
+  std::vector<Statement> body;
+};
+
+struct TopLevelVisitor {
+  virtual void Visit(const DefineFunction&) = 0;
+  virtual void Visit(const std::vector<DefineFunction>&) = 0;
 };
 
 }  // namespace ast

@@ -4,9 +4,11 @@
 #include <sstream>
 
 constexpr const char* kReservedIdentifiers[] = {
-  "if",
   "else",
+  "function",
+  "if",
   "let",
+  "return",
 };
 
 constexpr int kSpacesPerIndent = 2;
@@ -181,12 +183,12 @@ ast::Expression Parser::ParseDisjunction() {
 
 ast::Expression Parser::ParseExpression() { return ParseDisjunction(); }
 
-ast::DeclareVariable Parser::ParseVariableDeclaration() {
+ast::DefineVariable Parser::ParseVariableDefinition() {
   CheckConsume("let ");
   auto identifier = ParseIdentifier();
   CheckConsume(" = ");
   auto value = ParseExpression();
-  return ast::DeclareVariable{std::move(identifier.name), std::move(value)};
+  return ast::DefineVariable{std::move(identifier.name), std::move(value)};
 }
 
 ast::Assign Parser::ParseAssignment() {
@@ -223,11 +225,16 @@ ast::If Parser::ParseIfStatement(int indent) {
 
 ast::Statement Parser::ParseStatement(int indent) {
   if (reader_->starts_with("let ")) {
-    return ParseVariableDeclaration();
+    return ParseVariableDefinition();
   } else if (reader_->starts_with("do ")) {
     return ParseDoFunction();
   } else if (reader_->starts_with("if ")) {
     return ParseIfStatement(indent);
+  } else if (reader_->starts_with("return\n")) {
+    CheckConsume("return");
+    return ast::ReturnVoid{};
+  } else if (reader_->Consume("return ")) {
+    return ast::Return{ParseExpression()};
   } else {
     return ParseAssignment();
   }
@@ -247,6 +254,40 @@ std::vector<ast::Statement> Parser::ParseStatementBlock(int indent) {
     ConsumeIndent(kSpacesPerIndent);
     statements.push_back(ParseStatement(indent + kSpacesPerIndent));
   }
+}
+
+std::vector<std::string> Parser::ParseParameterList() {
+  CheckConsume("(");
+  if (reader_->Consume(")")) return {};
+  std::vector<std::string> parameters;
+  while (true) {
+    auto identifier = ParseIdentifier();
+    parameters.push_back(std::move(identifier.name));
+    CheckNotEnd();
+    if (reader_->Consume(")")) return parameters;
+    CheckConsume(", ");
+  }
+}
+
+ast::DefineFunction Parser::ParseFunctionDefinition() {
+  CheckConsume("function ");
+  auto identifier = ParseIdentifier();
+  auto parameters = ParseParameterList();
+  CheckConsume(" ");
+  auto body = ParseStatementBlock(0);
+  ConsumeNewline();
+  return ast::DefineFunction{std::move(identifier.name), std::move(parameters),
+                             std::move(body)};
+}
+
+std::vector<ast::DefineFunction> Parser::ParseProgram() {
+  std::vector<ast::DefineFunction> definitions;
+  definitions.push_back(ParseFunctionDefinition());
+  while (!reader_->empty()) {
+    ConsumeNewline();
+    definitions.push_back(ParseFunctionDefinition());
+  }
+  return definitions;
 }
 
 void Parser::CheckEnd() {
