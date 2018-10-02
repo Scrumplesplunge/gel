@@ -38,6 +38,8 @@ class Parser {
   ast::DefineFunction ParseFunctionDefinition();
   std::vector<ast::DefineFunction> ParseProgram();
 
+  void ParseComment(int indent);
+
   void CheckEnd();
   void CheckConsume(std::string_view expected);
   void ConsumeNewline();

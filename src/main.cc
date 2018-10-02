@@ -16,13 +16,13 @@ int main() {
     auto program = parser.ParseProgram();
     parser.CheckEnd();
     {
-      std::ofstream output{"gel-output.c"};
+      std::ofstream output{".gel-output.c"};
       target::c::TopLevel codegen{output};
       codegen.Visit(program);
     }
-    int compile_status = std::system("gcc gel-output.c -o gel-output");
+    int compile_status = std::system("gcc .gel-output.c -o .gel-output");
     if (compile_status) return compile_status;
-    return std::system("./gel-output");
+    return std::system("./.gel-output");
   } catch (const std::exception& error) {
     std::cout << error.what() << "\n";
   }

@@ -224,6 +224,7 @@ ast::If Parser::ParseIfStatement(int indent) {
 }
 
 ast::Statement Parser::ParseStatement(int indent) {
+  ParseComment(indent);
   if (reader_->starts_with("let ")) {
     return ParseVariableDefinition();
   } else if (reader_->starts_with("do ")) {
@@ -270,6 +271,7 @@ std::vector<std::string> Parser::ParseParameterList() {
 }
 
 ast::DefineFunction Parser::ParseFunctionDefinition() {
+  ParseComment(0);
   CheckConsume("function ");
   auto identifier = ParseIdentifier();
   auto parameters = ParseParameterList();
@@ -288,6 +290,15 @@ std::vector<ast::DefineFunction> Parser::ParseProgram() {
     definitions.push_back(ParseFunctionDefinition());
   }
   return definitions;
+}
+
+void Parser::ParseComment(int indent) {
+  while (reader_->Consume("#")) {
+    auto i = std::find(std::begin(*reader_), std::end(*reader_), '\n');
+    reader_->remove_prefix(i - std::begin(*reader_));
+    ConsumeNewline();
+    ConsumeIndent(indent);
+  }
 }
 
 void Parser::CheckEnd() {

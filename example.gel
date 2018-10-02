@@ -1,11 +1,15 @@
+# Compute the nth term of the Fibonnacci sequence.
 function fib(n) {
   if (n < 2) {
+    # Base case: fib(0) = 0, fib(1) = 1
     return n
   } else {
+    # Recursive case.
     return fib(n - 1) + fib(n - 2)
   }
 }
 
+# Main program: compute and display a term of the Fibonnacci sequence.
 function main() {
   do print(fib(10))
 }
