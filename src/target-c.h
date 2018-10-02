@@ -46,6 +46,7 @@ class Statement : public ast::StatementVisitor {
   void Visit(const ast::Assign&) override;
   void Visit(const ast::DoFunction&) override;
   void Visit(const ast::If&) override;
+  void Visit(const ast::While&) override;
   void Visit(const ast::ReturnVoid&) override;
   void Visit(const ast::Return&) override;
   void Visit(const std::vector<ast::Statement>& statements);

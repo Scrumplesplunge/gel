@@ -31,6 +31,7 @@ class Parser {
   ast::Assign ParseAssignment();
   ast::DoFunction ParseDoFunction();
   ast::If ParseIfStatement(int indent);
+  ast::While ParseWhileStatement(int indent);
   ast::Statement ParseStatement(int indent);
   std::vector<ast::Statement> ParseStatementBlock(int indent);
 

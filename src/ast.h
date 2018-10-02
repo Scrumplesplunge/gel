@@ -55,6 +55,7 @@ struct DefineVariable { std::string name; Expression value; };
 struct Assign { std::string variable; Expression value; };
 struct DoFunction { FunctionCall function_call; };
 struct If { Expression condition; std::vector<Statement> if_true, if_false; };
+struct While { Expression condition; std::vector<Statement> body; };
 struct ReturnVoid {};
 struct Return { Expression value; };
 
@@ -64,6 +65,7 @@ struct StatementVisitor {
   virtual void Visit(const Assign&) = 0;
   virtual void Visit(const DoFunction&) = 0;
   virtual void Visit(const If&) = 0;
+  virtual void Visit(const While&) = 0;
   virtual void Visit(const ReturnVoid&) = 0;
   virtual void Visit(const Return&) = 0;
 };

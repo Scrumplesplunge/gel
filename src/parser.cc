@@ -223,6 +223,14 @@ ast::If Parser::ParseIfStatement(int indent) {
   }
 }
 
+ast::While Parser::ParseWhileStatement(int indent) {
+  CheckConsume("while (");
+  auto condition = ParseExpression();
+  CheckConsume(") ");
+  auto statements = ParseStatementBlock(indent);
+  return ast::While{std::move(condition), std::move(statements)};
+}
+
 ast::Statement Parser::ParseStatement(int indent) {
   ParseComment(indent);
   if (reader_->starts_with("let ")) {
@@ -231,6 +239,8 @@ ast::Statement Parser::ParseStatement(int indent) {
     return ParseDoFunction();
   } else if (reader_->starts_with("if ")) {
     return ParseIfStatement(indent);
+  } else if (reader_->starts_with("while ")) {
+    return ParseWhileStatement(indent);
   } else if (reader_->starts_with("return\n")) {
     CheckConsume("return");
     return ast::ReturnVoid{};

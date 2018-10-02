@@ -11,5 +11,9 @@ function fib(n) {
 
 # Main program: compute and display a term of the Fibonnacci sequence.
 function main() {
-  do print(fib(10))
+  let i = 0
+  while (i < 10) {
+    do print(fib(i))
+    i = i + 1
+  }
 }

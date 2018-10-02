@@ -141,6 +141,16 @@ void Statement::Visit(const ast::If& if_statement) {
   output_ << indent_by{indent_} << "}\n";
 }
 
+void Statement::Visit(const ast::While& while_statement) {
+  output_ << indent_by{indent_} << "while (";
+  Expression condition_codegen{output_};
+  condition_codegen.Visit(while_statement.condition);
+  output_ << ") {\n";
+  Statement codegen{output_, indent_ + 2};
+  codegen.Visit(while_statement.body);
+  output_ << indent_by{indent_} << "}\n";
+}
+
 void Statement::Visit(const ast::ReturnVoid&) {
   output_ << indent_by{indent_} << "return;\n";
 }
