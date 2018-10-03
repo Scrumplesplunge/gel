@@ -1,32 +1,105 @@
 #pragma once
 
+#include "reader.h"
 #include "visitable.h"
 
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <vector>
 
 namespace ast {
 
+struct TypeVisitor;
+using Type = visitable::Node<TypeVisitor>;
+
+struct Boolean {};
+struct Int {};
+
+struct Function {
+  Type return_type;
+  std::vector<Type> parameters;
+};
+
+struct TypeVisitor {
+  void Visit(const Type& type) { type.Visit(*this); }
+  virtual void Visit(const Boolean&) = 0;
+  virtual void Visit(const Int&) = 0;
+  virtual void Visit(const Function&) = 0;
+};
+
 struct ExpressionVisitor;
 using Expression = visitable::Node<ExpressionVisitor>;
 
-struct Identifier { std::string name; };
-struct Integer { std::int64_t value; };
-struct Add { Expression left, right; };
-struct Subtract { Expression left, right; };
-struct Multiply { Expression left, right; };
-struct Divide { Expression left, right; };
-struct FunctionCall { Identifier function; std::vector<Expression> arguments; };
-struct CompareEq { Expression left, right; };
-struct CompareNe { Expression left, right; };
-struct CompareLe { Expression left, right; };
-struct CompareLt { Expression left, right; };
-struct CompareGe { Expression left, right; };
-struct CompareGt { Expression left, right; };
-struct LogicalNot { Expression argument; };
-struct LogicalAnd { Expression left, right; };
-struct LogicalOr { Expression left, right; };
+struct AnyExpression {
+  Reader::Location location;
+  std::optional<Type> type = std::nullopt;
+};
+
+struct Identifier : AnyExpression {
+  std::string name;
+};
+
+struct Integer : AnyExpression {
+  std::int64_t value;
+};
+
+struct Add : AnyExpression {
+  Expression left, right;
+};
+
+struct Subtract : AnyExpression {
+  Expression left, right;
+};
+
+struct Multiply : AnyExpression {
+  Expression left, right;
+};
+
+struct Divide : AnyExpression {
+  Expression left, right;
+};
+
+struct FunctionCall : AnyExpression {
+  Identifier function;
+  std::vector<Expression> arguments;
+};
+
+struct CompareEq : AnyExpression {
+  Expression left, right;
+};
+
+struct CompareNe : AnyExpression {
+  Expression left, right;
+};
+
+struct CompareLe : AnyExpression {
+  Expression left, right;
+};
+
+struct CompareLt : AnyExpression {
+  Expression left, right;
+};
+
+struct CompareGe : AnyExpression {
+  Expression left, right;
+};
+
+struct CompareGt : AnyExpression {
+  Expression left, right;
+};
+
+struct LogicalNot : AnyExpression {
+  Expression argument;
+};
+
+struct LogicalAnd : AnyExpression {
+  Expression left, right;
+};
+
+struct LogicalOr : AnyExpression {
+  Expression left, right;
+};
 
 struct ExpressionVisitor {
   void Visit(const Expression& expression) { expression.Visit(*this); }
@@ -51,13 +124,39 @@ struct ExpressionVisitor {
 struct StatementVisitor;
 using Statement = visitable::Node<StatementVisitor>;
 
-struct DefineVariable { std::string name; Expression value; };
-struct Assign { std::string variable; Expression value; };
-struct DoFunction { FunctionCall function_call; };
-struct If { Expression condition; std::vector<Statement> if_true, if_false; };
-struct While { Expression condition; std::vector<Statement> body; };
-struct ReturnVoid {};
-struct Return { Expression value; };
+struct AnyStatement {
+  Reader::Location location;
+};
+
+struct DefineVariable : AnyStatement {
+  std::string name;
+  Expression value;
+};
+
+struct Assign : AnyStatement {
+  std::string variable;
+  Expression value;
+};
+
+struct DoFunction : AnyStatement {
+  FunctionCall function_call;
+};
+
+struct If : AnyStatement {
+  Expression condition;
+  std::vector<Statement> if_true, if_false;
+};
+
+struct While : AnyStatement {
+  Expression condition;
+  std::vector<Statement> body;
+};
+
+struct ReturnVoid : AnyStatement {};
+
+struct Return : AnyStatement {
+  Expression value;
+};
 
 struct StatementVisitor {
   void Visit(const Statement& statement) { statement.Visit(*this); }
@@ -73,7 +172,11 @@ struct StatementVisitor {
 struct TopLevelVisitor;
 using TopLevel = visitable::Node<TopLevelVisitor>;
 
-struct DefineFunction {
+struct AnyTopLevel {
+  Reader::Location location;
+};
+
+struct DefineFunction : AnyTopLevel {
   std::string name;
   std::vector<std::string> parameters;
   std::vector<Statement> body;
