@@ -13,8 +13,10 @@ namespace ast {
 struct TypeVisitor;
 using Type = visitable::Node<TypeVisitor>;
 
-struct Boolean {};
-struct Int {};
+enum class Primitive {
+  BOOLEAN,
+  INTEGER,
+};
 
 struct Function {
   Type return_type;
@@ -23,10 +25,15 @@ struct Function {
 
 struct TypeVisitor {
   void Visit(const Type& type) { type.Visit(*this); }
-  virtual void Visit(const Boolean&) = 0;
-  virtual void Visit(const Int&) = 0;
+  virtual void Visit(const Primitive&) = 0;
   virtual void Visit(const Function&) = 0;
 };
+
+bool operator==(const Function& left, const Function& right);
+bool operator==(const Type& left, const Type& right);
+bool IsArithmeticType(const Type& type);
+const Function* GetFunctionType(const Type& type);
+std::string TypeName(const Type& type);
 
 struct ExpressionVisitor;
 using Expression = visitable::Node<ExpressionVisitor>;
@@ -44,19 +51,22 @@ struct Integer : AnyExpression {
   std::int64_t value;
 };
 
-struct Add : AnyExpression {
-  Expression left, right;
-};
-
-struct Subtract : AnyExpression {
-  Expression left, right;
-};
-
-struct Multiply : AnyExpression {
-  Expression left, right;
-};
-
-struct Divide : AnyExpression {
+struct Binary : AnyExpression {
+  enum Operation {
+    ADD,
+    COMPARE_EQ,
+    COMPARE_GE,
+    COMPARE_GT,
+    COMPARE_LE,
+    COMPARE_LT,
+    COMPARE_NE,
+    DIVIDE,
+    LOGICAL_AND,
+    LOGICAL_OR,
+    MULTIPLY,
+    SUBTRACT,
+  };
+  Operation operation;
   Expression left, right;
 };
 
@@ -65,61 +75,20 @@ struct FunctionCall : AnyExpression {
   std::vector<Expression> arguments;
 };
 
-struct CompareEq : AnyExpression {
-  Expression left, right;
-};
-
-struct CompareNe : AnyExpression {
-  Expression left, right;
-};
-
-struct CompareLe : AnyExpression {
-  Expression left, right;
-};
-
-struct CompareLt : AnyExpression {
-  Expression left, right;
-};
-
-struct CompareGe : AnyExpression {
-  Expression left, right;
-};
-
-struct CompareGt : AnyExpression {
-  Expression left, right;
-};
-
 struct LogicalNot : AnyExpression {
   Expression argument;
-};
-
-struct LogicalAnd : AnyExpression {
-  Expression left, right;
-};
-
-struct LogicalOr : AnyExpression {
-  Expression left, right;
 };
 
 struct ExpressionVisitor {
   void Visit(const Expression& expression) { expression.Visit(*this); }
   virtual void Visit(const Identifier&) = 0;
   virtual void Visit(const Integer&) = 0;
-  virtual void Visit(const Add&) = 0;
-  virtual void Visit(const Subtract&) = 0;
-  virtual void Visit(const Multiply&) = 0;
-  virtual void Visit(const Divide&) = 0;
+  virtual void Visit(const Binary&) = 0;
   virtual void Visit(const FunctionCall&) = 0;
-  virtual void Visit(const CompareEq&) = 0;
-  virtual void Visit(const CompareNe&) = 0;
-  virtual void Visit(const CompareLe&) = 0;
-  virtual void Visit(const CompareLt&) = 0;
-  virtual void Visit(const CompareGe&) = 0;
-  virtual void Visit(const CompareGt&) = 0;
   virtual void Visit(const LogicalNot&) = 0;
-  virtual void Visit(const LogicalAnd&) = 0;
-  virtual void Visit(const LogicalOr&) = 0;
 };
+
+const AnyExpression& GetMeta(const Expression& expression);
 
 struct StatementVisitor;
 using Statement = visitable::Node<StatementVisitor>;
@@ -191,3 +160,4 @@ struct TopLevelVisitor {
 
 extern template class visitable::Node<ast::ExpressionVisitor>;
 extern template class visitable::Node<ast::StatementVisitor>;
+extern template class visitable::Node<ast::TopLevelVisitor>;

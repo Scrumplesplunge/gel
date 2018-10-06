@@ -14,25 +14,11 @@ class Expression : public ast::ExpressionVisitor {
   using ExpressionVisitor::Visit;
   void Visit(const ast::Identifier&) override;
   void Visit(const ast::Integer&) override;
-  void Visit(const ast::Add&) override;
-  void Visit(const ast::Subtract&) override;
-  void Visit(const ast::Multiply&) override;
-  void Visit(const ast::Divide&) override;
+  void Visit(const ast::Binary&) override;
   void Visit(const ast::FunctionCall&) override;
-  void Visit(const ast::CompareEq&) override;
-  void Visit(const ast::CompareNe&) override;
-  void Visit(const ast::CompareLe&) override;
-  void Visit(const ast::CompareLt&) override;
-  void Visit(const ast::CompareGe&) override;
-  void Visit(const ast::CompareGt&) override;
   void Visit(const ast::LogicalNot&) override;
-  void Visit(const ast::LogicalAnd&) override;
-  void Visit(const ast::LogicalOr&) override;
 
  private:
-  void VisitBinary(std::string_view op, const ast::Expression& left,
-                   const ast::Expression& right);
-
   std::ostream& output_;
 };
 

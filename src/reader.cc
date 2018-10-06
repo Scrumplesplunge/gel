@@ -1,6 +1,7 @@
 #include "reader.h"
 
 #include <algorithm>
+#include <sstream>
 
 using namespace std::literals;
 
@@ -53,4 +54,20 @@ bool Reader::Consume(std::string_view prefix) {
   } else {
     return false;
   }
+}
+
+std::string FormatMessage(std::string_view type, Reader::Location location,
+                          std::string_view message) {
+  constexpr int kSourceIndent = 2;
+  std::string indicator =
+      std::string(kSourceIndent + location.column(), ' ');
+  indicator.back() = '^';
+  std::ostringstream output;
+  output << type << " at " << location.input_name() << ":"
+         << location.line() << ":" << location.column() << ": " << message
+         << "\n\n"
+         << std::string(kSourceIndent, ' ') << location.line_contents()
+         << "\n"
+         << indicator << "\n";
+  return output.str();
 }

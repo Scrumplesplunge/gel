@@ -42,3 +42,6 @@ class Reader {
   std::size_t offset_ = 0;
   int line_ = 1, column_ = 1;
 };
+
+std::string FormatMessage(std::string_view type, Reader::Location location,
+                          std::string_view message);

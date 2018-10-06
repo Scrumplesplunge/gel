@@ -32,20 +32,27 @@ void Expression::Visit(const ast::Integer& integer) {
   output_ << integer.value;
 }
 
-void Expression::Visit(const ast::Add& add) {
-  VisitBinary("+", add.left, add.right);
-}
-
-void Expression::Visit(const ast::Subtract& subtract) {
-  VisitBinary("-", subtract.left, subtract.right);
-}
-
-void Expression::Visit(const ast::Multiply& multiply) {
-  VisitBinary("*", multiply.left, multiply.right);
-}
-
-void Expression::Visit(const ast::Divide& divide) {
-  VisitBinary("/", divide.left, divide.right);
+void Expression::Visit(const ast::Binary& binary) {
+  output_ << "(";
+  Visit(binary.left);
+  output_ << " ";
+  switch (binary.operation) {
+    case ast::Binary::ADD: output_ << "+"; break;
+    case ast::Binary::COMPARE_EQ: output_ << "=="; break;
+    case ast::Binary::COMPARE_GE: output_ << ">="; break;
+    case ast::Binary::COMPARE_GT: output_ << ">"; break;
+    case ast::Binary::COMPARE_LE: output_ << "<="; break;
+    case ast::Binary::COMPARE_LT: output_ << "<"; break;
+    case ast::Binary::COMPARE_NE: output_ << "!="; break;
+    case ast::Binary::DIVIDE: output_ << "/"; break;
+    case ast::Binary::LOGICAL_AND: output_ << "&&"; break;
+    case ast::Binary::LOGICAL_OR: output_ << "||"; break;
+    case ast::Binary::MULTIPLY: output_ << "*"; break;
+    case ast::Binary::SUBTRACT: output_ << "-"; break;
+  }
+  output_ << " ";
+  Visit(binary.right);
+  output_ << ")";
 }
 
 void Expression::Visit(const ast::FunctionCall& call) {
@@ -62,50 +69,9 @@ void Expression::Visit(const ast::FunctionCall& call) {
   output_ << ")";
 }
 
-void Expression::Visit(const ast::CompareEq& compare) {
-  VisitBinary("==", compare.left, compare.right);
-}
-
-void Expression::Visit(const ast::CompareNe& compare) {
-  VisitBinary("!=", compare.left, compare.right);
-}
-
-void Expression::Visit(const ast::CompareLe& compare) {
-  VisitBinary("<=", compare.left, compare.right);
-}
-
-void Expression::Visit(const ast::CompareLt& compare) {
-  VisitBinary("<", compare.left, compare.right);
-}
-
-void Expression::Visit(const ast::CompareGe& compare) {
-  VisitBinary(">=", compare.left, compare.right);
-}
-
-void Expression::Visit(const ast::CompareGt& compare) {
-  VisitBinary(">", compare.left, compare.right);
-}
-
 void Expression::Visit(const ast::LogicalNot& op) {
   output_ << "!";
   Visit(op.argument);
-}
-
-void Expression::Visit(const ast::LogicalAnd& op) {
-  VisitBinary("&&", op.left, op.right);
-}
-
-void Expression::Visit(const ast::LogicalOr& op) {
-  VisitBinary("||", op.left, op.right);
-}
-
-void Expression::VisitBinary(std::string_view op, const ast::Expression& left,
-                             const ast::Expression& right) {
-  output_ << "(";
-  Visit(left);
-  output_ << " " << op << " ";
-  Visit(right);
-  output_ << ")";
 }
 
 void Statement::Visit(const ast::DefineVariable& definition) {
