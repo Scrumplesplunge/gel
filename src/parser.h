@@ -6,11 +6,6 @@
 #include <stdexcept>
 #include <string_view>
 
-class SyntaxError : public std::runtime_error {
- public:
-  using runtime_error::runtime_error;
-};
-
 class Parser {
  public:
   Parser(Reader& reader) : reader_(&reader) {}

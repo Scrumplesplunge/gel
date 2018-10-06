@@ -33,7 +33,7 @@ bool operator==(const Function& left, const Function& right);
 bool operator==(const Type& left, const Type& right);
 bool IsArithmeticType(const Type& type);
 const Function* GetFunctionType(const Type& type);
-std::string TypeName(const Type& type);
+std::ostream& operator<<(std::ostream& output, const Type& type);
 
 struct ExpressionVisitor;
 using Expression = visitable::Node<ExpressionVisitor>;

@@ -56,18 +56,52 @@ bool Reader::Consume(std::string_view prefix) {
   }
 }
 
-std::string FormatMessage(std::string_view type, Reader::Location location,
-                          std::string_view message) {
+std::ostream& operator<<(std::ostream& output, Reader::Location location) {
+  return output << location.input_name() << ":" << location.line() << ":"
+                << location.column();
+}
+
+std::ostream& operator<<(std::ostream& output, Message::Type type) {
+  constexpr char kRed[] = "\x1b[31;1m";
+  constexpr char kYellow[] = "\x1b[33m";
+  constexpr char kCyan[] = "\x1b[36m";
+  constexpr char kReset[] = "\x1b[0m";
+  switch (type) {
+    case Message::Type::ERROR:
+      return output << kRed << "error" << kReset;
+    case Message::Type::WARNING:
+      return output << kYellow << "warning" << kReset;
+    case Message::Type::NOTE:
+      return output << kCyan << "note" << kReset;
+  }
+}
+
+std::ostream& operator<<(std::ostream& output, const Message& message) {
   constexpr int kSourceIndent = 2;
-  std::string indicator =
-      std::string(kSourceIndent + location.column(), ' ');
-  indicator.back() = '^';
+  return output << message.location << ": " << message.type << ": "
+                << message.text << "\n\n"
+                << std::string(kSourceIndent, ' ')
+                << message.location.line_contents() << "\n"
+                << std::string(kSourceIndent + message.location.column() - 1,
+                               ' ')
+                << "^\n";
+}
+
+Message Message::Error(Reader::Location location, std::string message) {
+  return Message{Message::Type::ERROR, location, std::move(message)};
+}
+
+Message Message::Warning(Reader::Location location, std::string message) {
+  return Message{Message::Type::WARNING, location, std::move(message)};
+}
+
+Message Message::Note(Reader::Location location, std::string message) {
+  return Message{Message::Type::NOTE, location, std::move(message)};
+}
+
+CompileError::CompileError(Reader::Location location, std::string_view text)
+    : message_(Message::Error(location, std::string{text})) {
   std::ostringstream output;
-  output << type << " at " << location.input_name() << ":"
-         << location.line() << ":" << location.column() << ": " << message
-         << "\n\n"
-         << std::string(kSourceIndent, ' ') << location.line_contents()
-         << "\n"
-         << indicator << "\n";
-  return output.str();
+  output << message_;
+  formatted_ = output.str();
 }

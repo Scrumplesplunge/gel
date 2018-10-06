@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <string>
 
 class Reader {
@@ -43,5 +44,35 @@ class Reader {
   int line_ = 1, column_ = 1;
 };
 
-std::string FormatMessage(std::string_view type, Reader::Location location,
-                          std::string_view message);
+std::ostream& operator<<(std::ostream& output, Reader::Location location);
+
+struct Message {
+  enum class Type {
+    ERROR,
+    WARNING,
+    NOTE,
+  };
+
+  static Message Error(Reader::Location location, std::string text);
+  static Message Warning(Reader::Location location, std::string text);
+  static Message Note(Reader::Location location, std::string text);
+
+  Type type;
+  Reader::Location location;
+  std::string text;
+};
+
+std::ostream& operator<<(std::ostream& output, Message::Type type);
+std::ostream& operator<<(std::ostream& output, const Message& message);
+
+class CompileError : public std::exception {
+ public:
+  CompileError(Reader::Location location, std::string_view text);
+  const Message& message() const { return message_; }
+  Reader::Location location() const { return message_.location; }
+  const std::string& text() const { return message_.text; }
+  const char* what() const noexcept override { return formatted_.c_str(); }
+ private:
+  Message message_;
+  std::string formatted_;
+};

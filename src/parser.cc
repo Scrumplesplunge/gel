@@ -3,21 +3,10 @@
 #include <algorithm>
 
 constexpr const char* kReservedIdentifiers[] = {
-  "boolean",
-  "else",
-  "function",
-  "if",
-  "integer",
-  "let",
-  "return",
-  "while",
+    "boolean", "else", "function", "if", "integer", "let", "return", "while",
 };
 
 constexpr int kSpacesPerIndent = 2;
-
-static SyntaxError Error(Reader::Location location, std::string_view message) {
-  return SyntaxError{FormatMessage("Syntax error", location, message)};
-}
 
 ast::Identifier Parser::ParseIdentifier() {
   auto begin = std::begin(*reader_);
@@ -30,11 +19,11 @@ ast::Identifier Parser::ParseIdentifier() {
   auto j = std::find(std::begin(kReservedIdentifiers),
                      std::end(kReservedIdentifiers), name);
   if (j != std::end(kReservedIdentifiers)) {
-    throw Error(location, "Reserved word '" + std::string{name} +
-                              "' can't be used as an identifier.");
+    throw CompileError{location, "Reserved word '" + std::string{name} +
+                                     "' can't be used as an identifier."};
   }
   if (name.empty() || !std::isalpha(name[0]))
-    throw Error(location, "Invalid identifier: " + std::string{name});
+    throw CompileError{location, "Invalid identifier: " + std::string{name}};
   reader_->remove_prefix(length);
   return ast::Identifier{{location}, std::string{name}};
 }
@@ -79,7 +68,7 @@ ast::Expression Parser::ParseTerm() {
   if (reader_->Consume("(")) {
     auto expression = ParseExpression();
     if (!reader_->Consume(")"))
-      throw Error(location, "No matching ')' for this '('.");
+      throw CompileError{location, "No matching ')' for this '('."};
     return expression;
   }
   CheckNotEnd();
@@ -91,13 +80,13 @@ ast::Expression Parser::ParseTerm() {
     if (!reader_->empty() && reader_->front() == '(') {
       auto location = reader_->location();
       auto arguments = ParseArgumentList();
-      return ast::FunctionCall{{location}, std::move(identifier),
-                               std::move(arguments)};
+      return ast::FunctionCall{
+          {location}, std::move(identifier), std::move(arguments)};
     } else {
       return identifier;
     }
   } else {
-    throw Error(location, "Illegal token.");
+    throw CompileError{location, "Illegal token."};
   }
 }
 
@@ -270,10 +259,14 @@ ast::If Parser::ParseIfStatement(int indent) {
   auto statements = ParseStatementBlock(indent);
   if (reader_->starts_with(" else if (")) {
     CheckConsume(" else ");
-    return ast::If{{location}, std::move(condition), std::move(statements),
+    return ast::If{{location},
+                   std::move(condition),
+                   std::move(statements),
                    {ParseIfStatement(indent)}};
   } else if (reader_->Consume(" else ")) {
-    return ast::If{{location}, std::move(condition), std::move(statements),
+    return ast::If{{location},
+                   std::move(condition),
+                   std::move(statements),
                    ParseStatementBlock(indent)};
   } else {
     return ast::If{{location}, std::move(condition), std::move(statements), {}};
@@ -376,19 +369,19 @@ void Parser::ParseComment(int indent) {
 
 void Parser::CheckEnd() {
   if (!reader_->empty())
-    throw Error(reader_->location(), "Unexpected trailing characters.");
+    throw CompileError{reader_->location(), "Unexpected trailing characters."};
 }
 
 void Parser::CheckConsume(std::string_view expected) {
   if (!reader_->Consume(expected)) {
-    throw Error(reader_->location(),
-                "Expected '" + std::string{expected} + "'.");
+    throw CompileError{reader_->location(),
+                       "Expected '" + std::string{expected} + "'."};
   }
 }
 
 void Parser::ConsumeNewline() {
   if (!reader_->Consume("\n"))
-    throw Error(reader_->location(), "Expected '\\n'.");
+    throw CompileError{reader_->location(), "Expected '\\n'."};
 }
 
 void Parser::ConsumeIndent(int indent) {
@@ -404,13 +397,13 @@ void Parser::ConsumeIndent(int indent) {
   if (has_indent()) {
     reader_->remove_prefix(indent);
   } else {
-    throw Error(
+    throw CompileError{
         reader_->location(),
-        "Expected at least " + std::to_string(indent) + " spaces of indent.");
+        "Expected at least " + std::to_string(indent) + " spaces of indent."};
   }
 }
 
 void Parser::CheckNotEnd() {
   if (reader_->empty())
-    throw Error(reader_->location(), "Unexpected end of input.");
+    throw CompileError{reader_->location(), "Unexpected end of input."};
 }

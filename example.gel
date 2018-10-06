@@ -1,6 +1,13 @@
 # Compute the nth term of the Fibonnacci sequence.
 function fib(n) {
-  if (n < 2) {
+  let i = 1
+  # Redeclared variable.
+  let i = 2
+  # Type error.
+  i = (2 == 3)
+  # Undeclared variable.
+  m = 3
+  if (m < x) {
     # Base case: fib(0) = 0, fib(1) = 1
     return n
   } else {

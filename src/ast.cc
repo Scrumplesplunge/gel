@@ -68,38 +68,35 @@ const Function* GetFunctionType(const Type& type) {
   return output;
 }
 
-std::string TypeName(const Type& type) {
+std::ostream& operator<<(std::ostream& output, const Type& type) {
   class TypeNameVisitor : public TypeVisitor {
    public:
-    TypeNameVisitor(std::string* result) : result_(result) {}
+    TypeNameVisitor(std::ostream* output) : output_(output) {}
     void Visit(const Primitive& primitive) {
       switch (primitive) {
-        case Primitive::BOOLEAN: *result_ = "boolean"; break;
-        case Primitive::INTEGER: *result_ = "integer"; break;
+        case Primitive::BOOLEAN: *output_ << "boolean"; break;
+        case Primitive::INTEGER: *output_ << "integer"; break;
       }
     }
     void Visit(const Function& function) {
-      std::ostringstream output;
-      output << TypeName(function.return_type) << "(";
+      *output_ << function.return_type << "(";
       bool first = true;
       for (const auto& parameter : function.parameters) {
         if (first) {
           first = false;
         } else {
-          output << ", ";
+          *output_ << ", ";
         }
-        output << TypeName(parameter);
+        *output_ << parameter;
       }
-      output << ")";
-      *result_ = output.str();
+      *output_ << ")";
     }
    private:
-    std::string* result_;
+    std::ostream* output_;
   };
-  std::string result;
-  TypeNameVisitor visitor{&result};
+  TypeNameVisitor visitor{&output};
   type.Visit(visitor);
-  return result;
+  return output;
 }
 
 const AnyExpression& GetMeta(const Expression& expression) {
