@@ -8,6 +8,7 @@ BINARIES =  \
 all: $(patsubst %, bin/%, ${BINARIES})
 
 GEL_DEPS =  \
+	analysis  \
 	ast  \
 	parser  \
 	reader  \
