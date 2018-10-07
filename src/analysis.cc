@@ -198,10 +198,14 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
     visitor.Visit(call.arguments[i]);
     auto arg_copy = visitor.result();
     auto arg_type = GetMeta(arg_copy).type;
-    if (arg_type.has_value() && !(*arg_type == type->parameters[i])) {
+    if (arg_type.has_value() && type->parameters[i].type.has_value() &&
+        !(*arg_type == *type->parameters[i].type)) {
       context_->Error(GetMeta(call.arguments[i]).location)
-          << "Type mismatch for argument " << util::Detail(i) << " of call to "
-          << util::Detail(call.function.name) << ".";
+          << "Type mismatch for parameter "
+          << util::Detail(type->parameters[i].name) << " of call to "
+          << util::Detail(call.function.name) << ". Expected type is "
+          << util::Detail(*type->parameters[i].type)
+          << " but the actual type is " << util::Detail(*arg_type) << ".";
     }
     copy.arguments.push_back(std::move(arg_copy));
   }
@@ -245,27 +249,32 @@ ast::DefineVariable Statement::Check(
         << util::Detail(*value_type)
         << ", which is not a suitable type for a variable.";
   }
-  Scope::Entry entry{definition.location, GetMeta(value_copy).type};
+  auto copy = definition;
+  copy.variable.type = GetMeta(value_copy).type;
+  Scope::Entry entry{definition.location, copy.variable.type};
   // A call to Define() will succeed if there is no variable with the same name
   // that was defined in the current scope. However, there may still be a name
   // conflict in a surrounding scope. This isn't strictly a bug, so it should
   // produce a warning.
-  auto* previous_entry = scope_->Lookup(definition.name);
-  if (scope_->Define(definition.name, entry)) {
+  auto* previous_entry = scope_->Lookup(definition.variable.name);
+  if (scope_->Define(definition.variable.name, entry)) {
     if (previous_entry) {
       context_->Warning(definition.location)
-          << "Definition of " << util::Detail(definition.name)
+          << "Definition of " << util::Detail(definition.variable.name)
           << " shadows an existing definition.";
       context_->Note(previous_entry->location)
-          << util::Detail(definition.name) << " was previously declared here.";
+          << util::Detail(definition.variable.name)
+          << " was previously declared here.";
     }
   } else {
     context_->Error(definition.location)
-        << "Redefinition of variable " << util::Detail(definition.name) << ".";
+        << "Redefinition of variable " << util::Detail(definition.variable.name)
+        << ".";
     context_->Note(previous_entry->location)
-        << util::Detail(definition.name) << " was previously declared here.";
+        << util::Detail(definition.variable.name)
+        << " was previously declared here.";
   }
-  return definition;
+  return copy;
 }
 
 ast::Assign Statement::Check(const ast::Assign& assignment) const {
@@ -273,25 +282,26 @@ ast::Assign Statement::Check(const ast::Assign& assignment) const {
   visitor.Visit(assignment.value);
   auto value_copy = visitor.result();
   auto value_type = GetMeta(value_copy).type;
-  auto* entry = scope_->Lookup(assignment.variable);
+  auto* entry = scope_->Lookup(assignment.variable.name);
   if (entry == nullptr) {
-    context_->Error(assignment.location) << "Assignment to undefined variable "
-                                         << util::Detail(assignment.variable)
-                                         << ". Did you mean to write "
-                                         << util::Detail("let") << "?";
+    context_->Error(assignment.location)
+        << "Assignment to undefined variable "
+        << util::Detail(assignment.variable.name) << ". Did you mean to write "
+        << util::Detail("let") << "?";
     // Assume a definition was intended.
-    scope_->Define(assignment.variable,
+    scope_->Define(assignment.variable.name,
                    Scope::Entry{assignment.location, value_type});
-    entry = scope_->Lookup(assignment.variable);
+    entry = scope_->Lookup(assignment.variable.name);
   }
   if (entry->type.has_value() && value_type.has_value() &&
       !(*entry->type == *value_type)) {
     context_->Error(assignment.location)
-        << "Type mismatch in assignment: " << util::Detail(assignment.variable)
-        << " has type " << util::Detail(*entry->type)
-        << ", but expression yields type " << util::Detail(*value_type) << ".";
+        << "Type mismatch in assignment: "
+        << util::Detail(assignment.variable.name) << " has type "
+        << util::Detail(*entry->type) << ", but expression yields type "
+        << util::Detail(*value_type) << ".";
     context_->Note(entry->location)
-        << util::Detail(assignment.variable) << " is declared here.";
+        << util::Detail(assignment.variable.name) << " is declared here.";
   }
   return assignment;
 }
@@ -373,23 +383,26 @@ TopLevel::TopLevel(Context* context, Scope* scope)
 ast::DefineFunction TopLevel::Check(
     const ast::DefineFunction& definition) const {
   // For now, treat all input/outputs as integers.
-  ast::Type type =
-      ast::Function{ast::Primitive::INTEGER,
-                    std::vector<ast::Type>(definition.parameters.size(),
-                                           ast::Primitive::INTEGER)};
-  if (!scope_->Define(definition.name,
+  auto copy = definition;
+  for (auto& parameter : copy.parameters) {
+    parameter.type = ast::Primitive::INTEGER;
+  }
+  ast::Type type = ast::Function{ast::Primitive::INTEGER, copy.parameters};
+  copy.function.type = type;
+  if (!scope_->Define(definition.function.name,
                       Scope::Entry{definition.location, type})) {
     context_->Error(definition.location)
-        << "Redefinition of name " << util::Detail(definition.name) << ".";
-    auto* previous_entry = scope_->Lookup(definition.name);
+        << "Redefinition of name " << util::Detail(definition.function.name)
+        << ".";
+    auto* previous_entry = scope_->Lookup(definition.function.name);
     context_->Note(previous_entry->location)
-        << util::Detail(definition.name) << " previously declared here.";
+        << util::Detail(definition.function.name)
+        << " previously declared here.";
   }
   Scope function_scope{scope_};
-  for (const auto& parameter : definition.parameters) {
+  for (const auto& parameter : copy.parameters) {
     if (!function_scope.Define(
-            parameter.name,
-            Scope::Entry{parameter.location, ast::Primitive::INTEGER})) {
+            parameter.name, Scope::Entry{parameter.location, parameter.type})) {
       context_->Error(parameter.location)
           << "Multiple parameters called " << util::Detail(parameter.name)
           << ".";
@@ -399,7 +412,6 @@ ast::DefineFunction TopLevel::Check(
     }
   }
   Statement checker{context_, &function_scope};
-  auto copy = definition;
   copy.body = checker.Check(definition.body);
   return copy;
 }

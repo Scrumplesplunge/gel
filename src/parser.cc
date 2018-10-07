@@ -227,7 +227,7 @@ ast::DefineVariable Parser::ParseVariableDefinition() {
   CheckConsume("= ");
   auto value = ParseExpression();
   return ast::DefineVariable{
-      {location}, std::move(identifier.name), std::move(value)};
+      {location}, std::move(identifier), std::move(value)};
 }
 
 ast::Assign Parser::ParseAssignment() {
@@ -236,7 +236,7 @@ ast::Assign Parser::ParseAssignment() {
   auto location = reader_->location();
   CheckConsume("= ");
   auto value = ParseExpression();
-  return ast::Assign{{location}, std::move(identifier.name), std::move(value)};
+  return ast::Assign{{location}, std::move(identifier), std::move(value)};
 }
 
 ast::DoFunction Parser::ParseDoFunction() {
@@ -342,7 +342,7 @@ ast::DefineFunction Parser::ParseFunctionDefinition() {
   auto body = ParseStatementBlock(0);
   ConsumeNewline();
   return ast::DefineFunction{{location},
-                             std::move(identifier.name),
+                             std::move(identifier),
                              std::move(parameters),
                              std::move(body)};
 }

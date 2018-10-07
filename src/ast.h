@@ -20,9 +20,10 @@ enum class Primitive {
   INTEGER,
 };
 
+struct Identifier;
 struct Function {
   Type return_type;
-  std::vector<Type> parameters;
+  std::vector<Identifier> parameters;
 };
 
 struct TypeVisitor {
@@ -102,12 +103,12 @@ struct AnyStatement {
 };
 
 struct DefineVariable : AnyStatement {
-  std::string name;
+  ast::Identifier variable;
   Expression value;
 };
 
 struct Assign : AnyStatement {
-  std::string variable;
+  ast::Identifier variable;
   Expression value;
 };
 
@@ -150,7 +151,7 @@ struct AnyTopLevel {
 };
 
 struct DefineFunction : AnyTopLevel {
-  std::string name;
+  ast::Identifier function;
   std::vector<ast::Identifier> parameters;
   std::vector<Statement> body;
 };

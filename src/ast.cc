@@ -34,8 +34,12 @@ class LambdaExpressionVisitor : public ExpressionVisitor {
 }  // namespace
 
 bool operator==(const Function& left, const Function& right) {
-  return left.return_type == right.return_type &&
-         left.parameters == right.parameters;
+  if (!(left.return_type == right.return_type)) return false;
+  if (left.parameters.size() != right.parameters.size()) return false;
+  for (std::size_t i = 0, n = left.parameters.size(); i < n; i++) {
+    if (!(left.parameters[i].type == right.parameters[i].type)) return false;
+  }
+  return true;
 }
 
 bool operator==(const Type& left, const Type& right) {
@@ -105,7 +109,7 @@ std::ostream& operator<<(std::ostream& output, const Type& type) {
         } else {
           *output_ << ", ";
         }
-        *output_ << parameter;
+        *output_ << parameter.type.value();
       }
       *output_ << ") -> " << function.return_type;
     }

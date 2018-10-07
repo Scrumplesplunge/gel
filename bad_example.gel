@@ -1,7 +1,15 @@
 # Compute the nth term of the Fibonnacci sequence.
 function fib(n) {
-  let condition = n < 2
-  if (condition) {
+  let i = 1
+  # Redeclared variable.
+  let i = 2
+  # Type error.
+  i = (2 == 3)
+  # Undeclared variable.
+  m = 3
+  if (m < x) {
+    # Variable which shadows another.
+    let i = 3
     # Base case: fib(0) = 0, fib(1) = 1
     return n
   } else {
@@ -12,6 +20,10 @@ function fib(n) {
 
 # Main program: compute and display a term of the Fibonnacci sequence.
 function main() {
+  # Can't have function variables.
+  let f = fib
+  # Can't call a function expecting an int with a boolean value.
+  do fib(0 == 0)
   let i = 0
   while (i < 10) {
     do print(fib(i))

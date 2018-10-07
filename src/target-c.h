@@ -7,6 +7,18 @@
 
 namespace target::c {
 
+class Type : public ast::TypeVisitor {
+ public:
+  Type(std::ostream& output) : output_(output) {}
+
+  void Visit(const ast::Void&) override;
+  void Visit(const ast::Primitive&) override;
+  void Visit(const ast::Function&) override;
+
+ private:
+  std::ostream& output_;
+};
+
 class Expression : public ast::ExpressionVisitor {
  public:
   Expression(std::ostream& output) : output_(output) {}

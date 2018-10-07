@@ -21,10 +21,14 @@ int main() {
   analysis::Context context;
   analysis::Scope scope;
   Reader builtins{"builtin", "<native code>"};
-  scope.Define("print", analysis::Scope::Entry{
-                            builtins.location(),
-                            ast::Function{ast::Primitive::INTEGER,
-                                          {ast::Primitive::INTEGER}}});
+  scope.Define(
+      "print",
+      analysis::Scope::Entry{
+          builtins.location(),
+          ast::Function{
+              ast::Void{},
+              {ast::Identifier{{builtins.location(), ast::Primitive::INTEGER},
+                               "number"}}}});
   analysis::TopLevel checker{&context, &scope};
   checker.Visit(program);
   if (!context.diagnostics.empty()) {
