@@ -146,7 +146,7 @@ void TopLevel::Visit(const ast::DefineFunction& definition) {
     } else {
       output_ << ", ";
     }
-    output_ << "int " << parameter;
+    output_ << "int " << parameter.name;
   }
   output_ << ") {\n";
   Statement codegen{output_, 2};

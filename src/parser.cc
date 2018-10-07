@@ -320,13 +320,12 @@ std::vector<ast::Statement> Parser::ParseStatementBlock(int indent) {
   }
 }
 
-std::vector<std::string> Parser::ParseParameterList() {
+std::vector<ast::Identifier> Parser::ParseParameterList() {
   CheckConsume("(");
   if (reader_->Consume(")")) return {};
-  std::vector<std::string> parameters;
+  std::vector<ast::Identifier> parameters;
   while (true) {
-    auto identifier = ParseIdentifier();
-    parameters.push_back(std::move(identifier.name));
+    parameters.push_back(ParseIdentifier());
     CheckNotEnd();
     if (reader_->Consume(")")) return parameters;
     CheckConsume(", ");

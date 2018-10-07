@@ -1,6 +1,24 @@
 #include "analysis.h"
 
+#include "util.h"
+
 namespace analysis {
+
+MessageBuilder::~MessageBuilder() {
+  context_->diagnostics.push_back(Message{type_, location_, text_.str()});
+}
+
+MessageBuilder Context::Error(Reader::Location location) {
+  return MessageBuilder{this, Message::Type::ERROR, location};
+}
+
+MessageBuilder Context::Warning(Reader::Location location) {
+  return MessageBuilder{this, Message::Type::WARNING, location};
+}
+
+MessageBuilder Context::Note(Reader::Location location) {
+  return MessageBuilder{this, Message::Type::NOTE, location};
+}
 
 bool Scope::Define(std::string name, Scope::Entry entry) {
   auto [i, j] = bindings_.equal_range(name);
@@ -22,9 +40,8 @@ Expression::Expression(Context* context, const Scope* scope)
 ast::Identifier Expression::Check(const ast::Identifier& identifier) const {
   auto* entry = scope_->Lookup(identifier.name);
   if (entry == nullptr) {
-    context_->diagnostics.push_back(
-        Message::Error(identifier.location,
-                       "Undefined identifier '" + identifier.name + "'."));
+    context_->Error(identifier.location)
+        << "Undefined identifier " << util::Detail(identifier.name) << ".";
     return identifier;
   }
   auto copy = identifier;
@@ -57,24 +74,26 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
           !left_type.has_value() || IsArithmeticType(*left_type);
       // Both arguments should be integers.
       if (!left_acceptable) {
-        context_->diagnostics.push_back(Message::Error(
-            binary.location,
-            "Left argument of arithmetic operator is not of arithmetic type."));
+        context_->Error(binary.location)
+            << "Left argument of arithmetic operator has type "
+            << util::Detail(*left_type) << ", which is not an arithmetic type.";
       }
       bool right_acceptable =
           !right_type.has_value() || IsArithmeticType(*right_type);
       if (!right_acceptable) {
-        context_->diagnostics.push_back(
-            Message::Error(binary.location,
-                           "Right argument of arithmetic operator is not of "
-                           "arithmetic type."));
+        context_->Error(binary.location)
+            << "Left argument of arithmetic operator has type "
+            << util::Detail(*right_type)
+            << ", which is not an arithmetic type.";
       }
       if (!left_acceptable || !right_acceptable) return binary;
       if (left_type.has_value() && right_type.has_value() &&
           !(*left_type == *right_type)) {
-        context_->diagnostics.push_back(Message::Error(
-            binary.location,
-            "Arguments of arithmetic operator are of different types."));
+        context_->Error(binary.location)
+            << "Mismatched arguments to arithmetic operator. "
+            << "Left argument has type " << util::Detail(*left_type)
+            << ", but right argument has type " << util::Detail(*right_type)
+            << ".";
         return binary;
       }
       auto copy = binary;
@@ -88,14 +107,14 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::LOGICAL_OR: {
       // Both arguments should be booleans.
       if (left_type.has_value() && !(left_type == ast::Primitive::BOOLEAN)) {
-        context_->diagnostics.push_back(Message::Error(
-            binary.location,
-            "Left argument to logical operation is not of boolean type."));
+        context_->Error(binary.location)
+            << "Left argument to logical operation has type "
+            << util::Detail(*left_type) << ", which is not a boolean type.";
       }
       if (right_type.has_value() && !(right_type == ast::Primitive::BOOLEAN)) {
-        context_->diagnostics.push_back(Message::Error(
-            binary.location,
-            "Right argument to logical operation is not of boolean type."));
+        context_->Error(binary.location)
+            << "Right argument to logical operation has type "
+            << util::Detail(*left_type) << ", which is not a boolean type.";
       }
       auto copy = binary;
       copy.type = ast::Primitive::BOOLEAN;
@@ -109,9 +128,11 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::COMPARE_NE: {
       if (left_type.has_value() && right_type.has_value() &&
           !(left_type == right_type)) {
-        context_->diagnostics.push_back(Message::Error(
-            binary.location,
-            "Arguments of comparison operator are of different types."));
+        context_->Error(binary.location)
+            << "Mismatched arguments to comparison operator. "
+            << "Left argument has type " << util::Detail(*left_type)
+            << ", but right argument has type " << util::Detail(*right_type)
+            << ".";
       }
       auto copy = binary;
       copy.type = ast::Primitive::BOOLEAN;
@@ -123,9 +144,8 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
 ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   auto* entry = scope_->Lookup(call.function.name);
   if (entry == nullptr) {
-    context_->diagnostics.push_back(Message::Error(
-        call.function.location,
-        "Undefined identifier '" + call.function.name + "'."));
+    context_->Error(call.function.location)
+        << "Undefined identifier " << util::Detail(call.function.name) << ".";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
@@ -139,11 +159,10 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   const ast::Function* type =
       entry->type.has_value() ? GetFunctionType(*entry->type) : nullptr;
   if (type == nullptr) {
-    context_->diagnostics.push_back(Message::Error(
-        call.function.location,
-        "'" + call.function.name + "' is not of function type."));
-    context_->diagnostics.push_back(Message::Note(
-        entry->location, "'" + call.function.name + "' is declared here."));
+    context_->Error(call.function.location)
+        << util::Detail(call.function.name) << " is not of function type.";
+    context_->Note(entry->location)
+        << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
@@ -155,13 +174,12 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   }
 
   if (call.arguments.size() != type->parameters.size()) {
-    context_->diagnostics.push_back(Message::Error(
-        call.function.location,
-        "'" + call.function.name + "' expects " +
-        std::to_string(type->parameters.size()) + " arguments but " +
-        std::to_string(call.arguments.size()) + " were provided."));
-    context_->diagnostics.push_back(Message::Note(
-        entry->location, "'" + call.function.name + "' is declared here."));
+    context_->Error(call.function.location)
+        << util::Detail(call.function.name) << " expects "
+        << util::Detail(type->parameters.size()) << " arguments but "
+        << util::Detail(call.arguments.size()) << " were provided.";
+    context_->Note(entry->location)
+        << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
@@ -181,10 +199,9 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
     auto arg_copy = visitor.result();
     auto arg_type = GetMeta(arg_copy).type;
     if (arg_type.has_value() && !(*arg_type == type->parameters[i])) {
-      context_->diagnostics.push_back(
-          Message::Error(GetMeta(call.arguments[i]).location,
-                         "Type mismatch for argument " + std::to_string(i) +
-                             " of call to '" + call.function.name + "'."));
+      context_->Error(GetMeta(call.arguments[i]).location)
+          << "Type mismatch for argument " << util::Detail(i) << " of call to "
+          << util::Detail(call.function.name) << ".";
     }
     copy.arguments.push_back(std::move(arg_copy));
   }
@@ -195,10 +212,11 @@ ast::LogicalNot Expression::Check(const ast::LogicalNot& logical_not) const {
   Expression visitor{context_, scope_};
   visitor.Visit(logical_not.argument);
   auto value_copy = visitor.result();
-  if (!(GetMeta(value_copy).type == ast::Primitive::BOOLEAN)) {
-    context_->diagnostics.push_back(
-        Message::Error(GetMeta(value_copy).location,
-                       "Argument to logical negation is not of boolean type."));
+  const std::optional<ast::Type>& value_type = GetMeta(value_copy).type;
+  if (value_type.has_value() && !(*value_type == ast::Primitive::BOOLEAN)) {
+    context_->Error(GetMeta(value_copy).location)
+        << "Argument to logical negation is of type "
+        << util::Detail(*value_type) << ", not boolean.";
   }
   auto copy = logical_not;
   copy.type = ast::Primitive::BOOLEAN;
@@ -220,14 +238,32 @@ ast::DefineVariable Statement::Check(
   Expression visitor{context_, scope_};
   visitor.Visit(definition.value);
   auto value_copy = visitor.result();
+  auto value_type = GetMeta(value_copy).type;
+  if (value_type.has_value() && !IsValueType(*value_type)) {
+    context_->Error(definition.location)
+        << "Assignment expression in definition yields type "
+        << util::Detail(*value_type)
+        << ", which is not a suitable type for a variable.";
+  }
   Scope::Entry entry{definition.location, GetMeta(value_copy).type};
-  if (!scope_->Define(definition.name, entry)) {
-    context_->diagnostics.push_back(
-        Message::Error(definition.location,
-                       "Redefinition of variable '" + definition.name + "'."));
-    auto* entry = scope_->Lookup(definition.name);
-    context_->diagnostics.push_back(Message::Note(
-        entry->location, "'" + definition.name + "' is declared here."));
+  // A call to Define() will succeed if there is no variable with the same name
+  // that was defined in the current scope. However, there may still be a name
+  // conflict in a surrounding scope. This isn't strictly a bug, so it should
+  // produce a warning.
+  auto* previous_entry = scope_->Lookup(definition.name);
+  if (scope_->Define(definition.name, entry)) {
+    if (previous_entry) {
+      context_->Warning(definition.location)
+          << "Definition of " << util::Detail(definition.name)
+          << " shadows an existing definition.";
+      context_->Note(previous_entry->location)
+          << util::Detail(definition.name) << " was previously declared here.";
+    }
+  } else {
+    context_->Error(definition.location)
+        << "Redefinition of variable " << util::Detail(definition.name) << ".";
+    context_->Note(previous_entry->location)
+        << util::Detail(definition.name) << " was previously declared here.";
   }
   return definition;
 }
@@ -239,10 +275,10 @@ ast::Assign Statement::Check(const ast::Assign& assignment) const {
   auto value_type = GetMeta(value_copy).type;
   auto* entry = scope_->Lookup(assignment.variable);
   if (entry == nullptr) {
-    context_->diagnostics.push_back(Message::Error(
-        assignment.location, "Assignment to undefined variable '" +
-                                 assignment.variable +
-                                 "'. Did you mean to write 'let'?"));
+    context_->Error(assignment.location) << "Assignment to undefined variable "
+                                         << util::Detail(assignment.variable)
+                                         << ". Did you mean to write "
+                                         << util::Detail("let") << "?";
     // Assume a definition was intended.
     scope_->Define(assignment.variable,
                    Scope::Entry{assignment.location, value_type});
@@ -250,11 +286,12 @@ ast::Assign Statement::Check(const ast::Assign& assignment) const {
   }
   if (entry->type.has_value() && value_type.has_value() &&
       !(*entry->type == *value_type)) {
-    context_->diagnostics.push_back(Message::Error(
-        assignment.location, "Type mismatch in assignment to variable '" +
-                                 assignment.variable + "'."));
-    context_->diagnostics.push_back(Message::Note(
-        entry->location, "'" + assignment.variable + "' is declared here."));
+    context_->Error(assignment.location)
+        << "Type mismatch in assignment: " << util::Detail(assignment.variable)
+        << " has type " << util::Detail(*entry->type)
+        << ", but expression yields type " << util::Detail(*value_type) << ".";
+    context_->Note(entry->location)
+        << util::Detail(assignment.variable) << " is declared here.";
   }
   return assignment;
 }
@@ -272,9 +309,10 @@ ast::If Statement::Check(const ast::If& if_statement) const {
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
-    context_->diagnostics.push_back(
-        Message::Error(GetMeta(copy.condition).location,
-                       "Condition for if statement is not of boolean type."));
+    context_->Error(GetMeta(copy.condition).location)
+        << "Condition for if statement has type "
+        << util::Detail(*condition_type) << ", not "
+        << util::Detail(ast::Primitive::BOOLEAN) << ".";
   }
   Scope true_scope{scope_};
   Statement true_checker{context_, &true_scope};
@@ -292,9 +330,10 @@ ast::While Statement::Check(const ast::While& while_statement) const {
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
-    context_->diagnostics.push_back(Message::Error(
-        GetMeta(copy.condition).location,
-        "Condition for while statement is not of boolean type."));
+    context_->Error(GetMeta(copy.condition).location)
+        << "Condition for while statement has type "
+        << util::Detail(*condition_type) << ", not "
+        << util::Detail(ast::Primitive::BOOLEAN) << ".";
   }
   Scope body_scope{scope_};
   Statement body_checker{context_, &body_scope};
@@ -340,22 +379,23 @@ ast::DefineFunction TopLevel::Check(
                                            ast::Primitive::INTEGER)};
   if (!scope_->Define(definition.name,
                       Scope::Entry{definition.location, type})) {
-    context_->diagnostics.push_back(
-        Message::Error(definition.location,
-                       "Redefinition of name '" + definition.name + "'."));
-    auto* entry = scope_->Lookup(definition.name);
-    context_->diagnostics.push_back(
-        Message::Note(entry->location,
-                      "'" + definition.name + "' previously declared here."));
+    context_->Error(definition.location)
+        << "Redefinition of name " << util::Detail(definition.name) << ".";
+    auto* previous_entry = scope_->Lookup(definition.name);
+    context_->Note(previous_entry->location)
+        << util::Detail(definition.name) << " previously declared here.";
   }
   Scope function_scope{scope_};
   for (const auto& parameter : definition.parameters) {
     if (!function_scope.Define(
-            parameter,
-            Scope::Entry{definition.location, ast::Primitive::INTEGER})) {
-      context_->diagnostics.push_back(
-          Message::Error(definition.location,
-                         "Multiple parameters called '" + parameter + "'."));
+            parameter.name,
+            Scope::Entry{parameter.location, ast::Primitive::INTEGER})) {
+      context_->Error(parameter.location)
+          << "Multiple parameters called " << util::Detail(parameter.name)
+          << ".";
+      auto* previous_entry = function_scope.Lookup(parameter.name);
+      context_->Note(previous_entry->location)
+          << "Previous definition is here.";
     }
   }
   Statement checker{context_, &function_scope};

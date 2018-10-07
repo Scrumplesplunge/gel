@@ -8,6 +8,8 @@ function fib(n) {
   # Undeclared variable.
   m = 3
   if (m < x) {
+    # Variable which shadows another.
+    let i = 3
     # Base case: fib(0) = 0, fib(1) = 1
     return n
   } else {
@@ -18,6 +20,7 @@ function fib(n) {
 
 # Main program: compute and display a term of the Fibonnacci sequence.
 function main() {
+  let f = fib
   let i = 0
   while (i < 10) {
     do print(fib(i))

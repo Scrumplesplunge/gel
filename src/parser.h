@@ -30,7 +30,7 @@ class Parser {
   ast::Statement ParseStatement(int indent);
   std::vector<ast::Statement> ParseStatementBlock(int indent);
 
-  std::vector<std::string> ParseParameterList();
+  std::vector<ast::Identifier> ParseParameterList();
   ast::DefineFunction ParseFunctionDefinition();
   std::vector<ast::DefineFunction> ParseProgram();
 

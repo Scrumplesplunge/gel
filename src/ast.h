@@ -13,6 +13,8 @@ namespace ast {
 struct TypeVisitor;
 using Type = visitable::Node<TypeVisitor>;
 
+struct Void {};
+
 enum class Primitive {
   BOOLEAN,
   INTEGER,
@@ -25,6 +27,7 @@ struct Function {
 
 struct TypeVisitor {
   void Visit(const Type& type) { type.Visit(*this); }
+  virtual void Visit(const Void&) = 0;
   virtual void Visit(const Primitive&) = 0;
   virtual void Visit(const Function&) = 0;
 };
@@ -32,6 +35,7 @@ struct TypeVisitor {
 bool operator==(const Function& left, const Function& right);
 bool operator==(const Type& left, const Type& right);
 bool IsArithmeticType(const Type& type);
+bool IsValueType(const Type& type);
 const Function* GetFunctionType(const Type& type);
 std::ostream& operator<<(std::ostream& output, const Type& type);
 
@@ -147,7 +151,7 @@ struct AnyTopLevel {
 
 struct DefineFunction : AnyTopLevel {
   std::string name;
-  std::vector<std::string> parameters;
+  std::vector<ast::Identifier> parameters;
   std::vector<Statement> body;
 };
 

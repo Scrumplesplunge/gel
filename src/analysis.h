@@ -5,12 +5,36 @@
 
 #include <map>
 #include <optional>
+#include <sstream>
 #include <vector>
 
 namespace analysis {
 
+struct Context;
+
+class MessageBuilder {
+ public:
+  MessageBuilder(Context* context, Message::Type type,
+                 Reader::Location location)
+      : context_(context), type_(type), location_(location) {}
+  ~MessageBuilder();
+  MessageBuilder(const MessageBuilder&) = delete;
+  MessageBuilder(MessageBuilder&&) = delete;
+
+  template <typename T>
+  MessageBuilder& operator<<(T&& value) { text_ << value; return *this; }
+ private:
+  Context* const context_;
+  const Message::Type type_;
+  const Reader::Location location_;
+  std::ostringstream text_;
+};
+
 struct Context {
   std::vector<Message> diagnostics;
+  MessageBuilder Error(Reader::Location location);
+  MessageBuilder Warning(Reader::Location location);
+  MessageBuilder Note(Reader::Location location);
 };
 
 class Scope {

@@ -1,5 +1,7 @@
 #include "reader.h"
 
+#include "util.h"
+
 #include <algorithm>
 #include <sstream>
 
@@ -62,17 +64,13 @@ std::ostream& operator<<(std::ostream& output, Reader::Location location) {
 }
 
 std::ostream& operator<<(std::ostream& output, Message::Type type) {
-  constexpr char kRed[] = "\x1b[31;1m";
-  constexpr char kYellow[] = "\x1b[33m";
-  constexpr char kCyan[] = "\x1b[36m";
-  constexpr char kReset[] = "\x1b[0m";
   switch (type) {
     case Message::Type::ERROR:
-      return output << kRed << "error" << kReset;
+      return output << util::Error("error");
     case Message::Type::WARNING:
-      return output << kYellow << "warning" << kReset;
+      return output << util::Warning("warning");
     case Message::Type::NOTE:
-      return output << kCyan << "note" << kReset;
+      return output << util::Note("note");
   }
 }
 

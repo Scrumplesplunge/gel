@@ -10,6 +10,7 @@ class LambdaTypeVisitor : public TypeVisitor {
  public:
   LambdaTypeVisitor(F* functor) : functor_(functor) {}
   using TypeVisitor::Visit;
+  void Visit(const Void& v) override { (*functor_)(v); }
   void Visit(const Primitive& p) override { (*functor_)(p); }
   void Visit(const Function& f) override { (*functor_)(f); }
  private:
@@ -52,6 +53,22 @@ bool operator==(const Type& left, const Type& right) {
   return result;
 }
 
+bool IsValueType(const Type& type) {
+  bool result = false;
+  class Visitor : public TypeVisitor {
+   public:
+    Visitor(bool* result) : result_(result) {}
+    void Visit(const Void&) override { *result_ = false; }
+    void Visit(const Primitive&) override { *result_ = true; }
+    void Visit(const Function&) override { *result_ = false; }
+   private:
+    bool* result_;
+  };
+  Visitor visitor{&result};
+  type.Visit(visitor);
+  return result;
+}
+
 bool IsArithmeticType(const Type& type) {
   return type == Primitive::INTEGER;
 }
@@ -72,6 +89,7 @@ std::ostream& operator<<(std::ostream& output, const Type& type) {
   class TypeNameVisitor : public TypeVisitor {
    public:
     TypeNameVisitor(std::ostream* output) : output_(output) {}
+    void Visit(const Void&) { *output_ << "void"; }
     void Visit(const Primitive& primitive) {
       switch (primitive) {
         case Primitive::BOOLEAN: *output_ << "boolean"; break;
@@ -79,7 +97,7 @@ std::ostream& operator<<(std::ostream& output, const Type& type) {
       }
     }
     void Visit(const Function& function) {
-      *output_ << function.return_type << "(";
+      *output_ << "function (";
       bool first = true;
       for (const auto& parameter : function.parameters) {
         if (first) {
@@ -89,7 +107,7 @@ std::ostream& operator<<(std::ostream& output, const Type& type) {
         }
         *output_ << parameter;
       }
-      *output_ << ")";
+      *output_ << ") -> " << function.return_type;
     }
    private:
     std::ostream* output_;

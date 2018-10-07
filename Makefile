@@ -13,6 +13,7 @@ GEL_DEPS =  \
 	parser  \
 	reader  \
 	target-c  \
+	util  \
 	visitable  \
 	main
 bin/gel: $(patsubst %, obj/%.o, ${GEL_DEPS})
