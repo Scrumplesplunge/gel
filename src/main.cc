@@ -48,8 +48,7 @@ int main() {
   auto checked = checker.result();
   {
     std::ofstream output{".gel-output.c"};
-    target::c::TopLevel codegen{output};
-    checked.Visit(codegen);
+    target::c::Compile(checked, &output);
   }
   int compile_status = std::system("gcc .gel-output.c -o .gel-output");
   if (compile_status) return compile_status;
