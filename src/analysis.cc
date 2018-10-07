@@ -310,6 +310,13 @@ ast::DoFunction Statement::Check(const ast::DoFunction& do_function) const {
   Expression visitor{context_, scope_};
   auto copy = do_function;
   copy.function_call = visitor.Check(do_function.function_call);
+  auto type = copy.function_call.type;
+  if (type.has_value() && !(*type == ast::Void{})) {
+    context_->Warning(copy.location)
+        << "Discarding return value of type " << util::Detail(*type)
+        << " in call to " << util::Detail(copy.function_call.function.name)
+        << ".";
+  }
   return copy;
 }
 

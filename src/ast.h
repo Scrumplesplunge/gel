@@ -33,6 +33,7 @@ struct TypeVisitor {
   virtual void Visit(const Function&) = 0;
 };
 
+inline bool operator==(Void, Void) { return true; }
 bool operator==(const Function& left, const Function& right);
 bool operator==(const Type& left, const Type& right);
 bool IsArithmeticType(const Type& type);
