@@ -43,5 +43,7 @@ class Parser {
   void CheckNotEnd();
 
  private:
+  std::string_view IdentifierPrefix() const;
+
   Reader* reader_;
 };

@@ -4,18 +4,14 @@
 
 constexpr const char* kReservedIdentifiers[] = {
     "boolean", "else", "function", "if", "integer", "let", "return", "while",
+    "true", "false",
 };
 
 constexpr int kSpacesPerIndent = 2;
 
 ast::Identifier Parser::ParseIdentifier() {
-  auto begin = std::begin(*reader_);
-  auto end = std::end(*reader_);
-  auto i = std::find_if_not(begin, end,
-                            [](unsigned char c) { return std::isalnum(c); });
-  auto length = i - begin;
   Reader::Location location = reader_->location();
-  std::string_view name = reader_->prefix(length);
+  std::string_view name = IdentifierPrefix();
   auto j = std::find(std::begin(kReservedIdentifiers),
                      std::end(kReservedIdentifiers), name);
   if (j != std::end(kReservedIdentifiers)) {
@@ -24,7 +20,7 @@ ast::Identifier Parser::ParseIdentifier() {
   }
   if (name.empty() || !std::isalpha(name[0]))
     throw CompileError{location, "Invalid identifier: " + std::string{name}};
-  reader_->remove_prefix(length);
+  reader_->remove_prefix(name.length());
   return ast::Identifier{{location}, std::string{name}};
 }
 
@@ -62,8 +58,7 @@ std::vector<ast::Expression> Parser::ParseArgumentList() {
 }
 
 ast::Expression Parser::ParseTerm() {
-  // A term is either an integer, an identifier, or a subexpression surrounded
-  // by parentheses.
+  // Check if this term is a nested expression.
   auto location = reader_->location();
   if (reader_->Consume("(")) {
     auto expression = ParseExpression();
@@ -74,8 +69,15 @@ ast::Expression Parser::ParseTerm() {
   CheckNotEnd();
   char lookahead = reader_->front();
   if (lookahead == '-' || std::isdigit(lookahead)) {
+    // Positive or negative integers.
     return ParseInteger();
   } else if (std::isalpha(lookahead)) {
+    auto candidate = IdentifierPrefix();
+    if (candidate == "true" || candidate == "false") {
+      reader_->remove_prefix(candidate.length());
+      return ast::Boolean{{location}, candidate == "true"};
+    }
+    // Variables or function calls.
     auto identifier = ParseIdentifier();
     if (!reader_->empty() && reader_->front() == '(') {
       auto location = reader_->location();
@@ -405,4 +407,12 @@ void Parser::ConsumeIndent(int indent) {
 void Parser::CheckNotEnd() {
   if (reader_->empty())
     throw CompileError{reader_->location(), "Unexpected end of input."};
+}
+
+std::string_view Parser::IdentifierPrefix() const {
+  auto begin = std::begin(*reader_);
+  auto end = std::end(*reader_);
+  auto i = std::find_if_not(begin, end,
+                            [](unsigned char c) { return std::isalnum(c); });
+  return reader_->prefix(i - begin);
 }

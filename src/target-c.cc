@@ -43,6 +43,7 @@ class Expression : public ast::ExpressionVisitor {
 
   using ExpressionVisitor::Visit;
   void Visit(const ast::Identifier&) override;
+  void Visit(const ast::Boolean&) override;
   void Visit(const ast::Integer&) override;
   void Visit(const ast::Binary&) override;
   void Visit(const ast::FunctionCall&) override;
@@ -102,6 +103,10 @@ void Type::Visit(const ast::Function&) {
 
 void Expression::Visit(const ast::Identifier& identifier) {
   output_ << "gel_" << identifier.name;
+}
+
+void Expression::Visit(const ast::Boolean& boolean) {
+  output_ << (boolean.value ? "true" : "false");
 }
 
 void Expression::Visit(const ast::Integer& integer) {

@@ -49,6 +49,12 @@ ast::Identifier Expression::Check(const ast::Identifier& identifier) const {
   return copy;
 }
 
+ast::Boolean Expression::Check(const ast::Boolean& boolean) const {
+  auto copy = boolean;
+  copy.type = ast::Primitive::BOOLEAN;
+  return copy;
+}
+
 ast::Integer Expression::Check(const ast::Integer& integer) const {
   auto copy = integer;
   copy.type = ast::Primitive::INTEGER;

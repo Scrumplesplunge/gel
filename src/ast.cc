@@ -23,6 +23,7 @@ class LambdaExpressionVisitor : public ExpressionVisitor {
   LambdaExpressionVisitor(F* functor) : functor_(functor) {}
   using ExpressionVisitor::Visit;
   void Visit(const Identifier& i) override { (*functor_)(i); }
+  void Visit(const Boolean& b) override { (*functor_)(b); }
   void Visit(const Integer& i) override { (*functor_)(i); }
   void Visit(const Binary& b) override { (*functor_)(b); }
   void Visit(const FunctionCall& f) override { (*functor_)(f); }

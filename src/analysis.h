@@ -56,11 +56,13 @@ class Expression : public ast::ExpressionVisitor {
   Expression(Context* context, const Scope* scope);
   using ExpressionVisitor::Visit;
   void Visit(const ast::Identifier& i) override { result_ = Check(i); }
+  void Visit(const ast::Boolean& b) override { result_ = Check(b); }
   void Visit(const ast::Integer& i) override { result_ = Check(i); }
   void Visit(const ast::Binary& b) override { result_ = Check(b); }
   void Visit(const ast::FunctionCall& f) override { result_ = Check(f); }
   void Visit(const ast::LogicalNot& l) override { result_ = Check(l); }
   ast::Identifier Check(const ast::Identifier&) const;
+  ast::Boolean Check(const ast::Boolean&) const;
   ast::Integer Check(const ast::Integer&) const;
   ast::Binary Check(const ast::Binary&) const;
   ast::FunctionCall Check(const ast::FunctionCall&) const;

@@ -53,6 +53,10 @@ struct Identifier : AnyExpression {
   std::string name;
 };
 
+struct Boolean : AnyExpression {
+  bool value;
+};
+
 struct Integer : AnyExpression {
   std::int64_t value;
 };
@@ -88,6 +92,7 @@ struct LogicalNot : AnyExpression {
 struct ExpressionVisitor {
   void Visit(const Expression& expression) { expression.Visit(*this); }
   virtual void Visit(const Identifier&) = 0;
+  virtual void Visit(const Boolean&) = 0;
   virtual void Visit(const Integer&) = 0;
   virtual void Visit(const Binary&) = 0;
   virtual void Visit(const FunctionCall&) = 0;
