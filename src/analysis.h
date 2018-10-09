@@ -51,31 +51,13 @@ class Scope {
   std::map<std::string, Entry, std::less<>> bindings_;
 };
 
-class Expression : public ast::ExpressionVisitor {
- public:
-  Expression(Context* context, const Scope* scope);
-  using ExpressionVisitor::Visit;
-  void Visit(const ast::Identifier& i) override { result_ = Check(i); }
-  void Visit(const ast::Boolean& b) override { result_ = Check(b); }
-  void Visit(const ast::Integer& i) override { result_ = Check(i); }
-  void Visit(const ast::Binary& b) override { result_ = Check(b); }
-  void Visit(const ast::FunctionCall& f) override { result_ = Check(f); }
-  void Visit(const ast::LogicalNot& l) override { result_ = Check(l); }
-  ast::Identifier Check(const ast::Identifier&) const;
-  ast::Boolean Check(const ast::Boolean&) const;
-  ast::Integer Check(const ast::Integer&) const;
-  ast::Binary Check(const ast::Binary&) const;
-  ast::FunctionCall Check(const ast::FunctionCall&) const;
-  ast::LogicalNot Check(const ast::LogicalNot&) const;
-  ast::Expression result() { return std::move(result_.value()); }
- private:
-  Context* context_;
-  const Scope* scope_;
-  std::optional<ast::Expression> result_;
-};
-
-ast::Expression Check(Context* context, const Scope& scope,
-                      const ast::Expression& expression);
+ast::Identifier Check(const ast::Identifier&, Context*, const Scope*);
+ast::Boolean Check(const ast::Boolean&, Context*, const Scope*);
+ast::Integer Check(const ast::Integer&, Context*, const Scope*);
+ast::Binary Check(const ast::Binary&, Context*, const Scope*);
+ast::FunctionCall Check(const ast::FunctionCall&, Context*, const Scope*);
+ast::LogicalNot Check(const ast::LogicalNot&, Context*, const Scope*);
+ast::Expression Check(const ast::Expression&, Context*, const Scope*);
 
 class Statement : public ast::StatementVisitor {
  public:

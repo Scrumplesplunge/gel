@@ -64,13 +64,9 @@ const T* one_of<Children...>::get_if() const {
 
 template <typename... Children>
 template <typename F>
-auto one_of<Children...>::visit(F&& functor) const {
-  return std::visit(std::forward<F>(functor), *value_);
-}
-
-template <typename... Children>
-template <typename F>
-auto one_of<Children...>::visit(F&& functor) {
+auto one_of<Children...>::visit(F&& functor) const
+    -> decltype(std::visit(std::forward<F>(functor),
+                           std::declval<const std::variant<Children...>>())) {
   return std::visit(std::forward<F>(functor), *value_);
 }
 

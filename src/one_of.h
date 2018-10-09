@@ -37,10 +37,9 @@ class one_of {
   const T* get_if() const;
 
   template <typename F>
-  auto visit(F&& functor) const;
-
-  template <typename F>
-  auto visit(F&& functor);
+  auto visit(F&& functor) const
+      -> decltype(std::visit(std::forward<F>(functor),
+                             std::declval<const std::variant<Children...>>()));
 
  private:
   // Comparison between different instances of the same one_of type.

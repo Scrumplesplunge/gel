@@ -34,13 +34,11 @@ const Scope::Entry* Scope::Lookup(std::string_view name) const {
   return parent_->Lookup(name);
 }
 
-Expression::Expression(Context* context, const Scope* scope)
-    : context_(context), scope_(scope) {}
-
-ast::Identifier Expression::Check(const ast::Identifier& identifier) const {
-  auto* entry = scope_->Lookup(identifier.name);
+ast::Identifier Check(const ast::Identifier& identifier, Context* context,
+                      const Scope* scope) {
+  auto* entry = scope->Lookup(identifier.name);
   if (entry == nullptr) {
-    context_->Error(identifier.location)
+    context->Error(identifier.location)
         << "Undefined identifier " << util::Detail(identifier.name) << ".";
     return identifier;
   }
@@ -49,26 +47,23 @@ ast::Identifier Expression::Check(const ast::Identifier& identifier) const {
   return copy;
 }
 
-ast::Boolean Expression::Check(const ast::Boolean& boolean) const {
+ast::Boolean Check(const ast::Boolean& boolean, Context*, const Scope*) {
   auto copy = boolean;
   copy.type = ast::Primitive::BOOLEAN;
   return copy;
 }
 
-ast::Integer Expression::Check(const ast::Integer& integer) const {
+ast::Integer Check(const ast::Integer& integer, Context*, const Scope*) {
   auto copy = integer;
   copy.type = ast::Primitive::INTEGER;
   return copy;
 }
 
-ast::Binary Expression::Check(const ast::Binary& binary) const {
-  Expression left_visit{context_, scope_};
-  left_visit.Visit(binary.left);
-  auto left = left_visit.result();
+ast::Binary Check(const ast::Binary& binary, Context* context,
+                  const Scope* scope) {
+  auto left = Check(binary.left, context, scope);
   auto left_type = GetMeta(left).type;
-  Expression right_visit{context_, scope_};
-  right_visit.Visit(binary.right);
-  auto right = right_visit.result();
+  auto right = Check(binary.right, context, scope);
   auto right_type = GetMeta(right).type;
 
   switch (binary.operation) {
@@ -80,14 +75,14 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
           !left_type.has_value() || *left_type == ast::Primitive::INTEGER;
       // Both arguments should be integers.
       if (!left_acceptable) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Left argument of arithmetic operator has type "
             << util::Detail(*left_type) << ", which is not an arithmetic type.";
       }
       bool right_acceptable =
           !right_type.has_value() || *right_type == ast::Primitive::INTEGER;
       if (!right_acceptable) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Left argument of arithmetic operator has type "
             << util::Detail(*right_type)
             << ", which is not an arithmetic type.";
@@ -95,7 +90,7 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
       if (!left_acceptable || !right_acceptable) return binary;
       if (left_type.has_value() && right_type.has_value() &&
           !(*left_type == *right_type)) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Mismatched arguments to arithmetic operator. "
             << "Left argument has type " << util::Detail(*left_type)
             << ", but right argument has type " << util::Detail(*right_type)
@@ -113,12 +108,12 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::LOGICAL_OR: {
       // Both arguments should be booleans.
       if (left_type.has_value() && !(*left_type == ast::Primitive::BOOLEAN)) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Left argument to logical operation has type "
             << util::Detail(*left_type) << ", which is not a boolean type.";
       }
       if (right_type.has_value() && !(*right_type == ast::Primitive::BOOLEAN)) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Right argument to logical operation has type "
             << util::Detail(*left_type) << ", which is not a boolean type.";
       }
@@ -134,7 +129,7 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::COMPARE_NE: {
       if (left_type.has_value() && right_type.has_value() &&
           !(left_type == right_type)) {
-        context_->Error(binary.location)
+        context->Error(binary.location)
             << "Mismatched arguments to comparison operator. "
             << "Left argument has type " << util::Detail(*left_type)
             << ", but right argument has type " << util::Detail(*right_type)
@@ -147,52 +142,44 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
   }
 }
 
-ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
-  auto* entry = scope_->Lookup(call.function.name);
+ast::FunctionCall Check(const ast::FunctionCall& call, Context* context,
+                        const Scope* scope) {
+  auto* entry = scope->Lookup(call.function.name);
   if (entry == nullptr) {
-    context_->Error(call.function.location)
+    context->Error(call.function.location)
         << "Undefined identifier " << util::Detail(call.function.name) << ".";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
-    for (const auto& argument : call.arguments) {
-      Expression visitor{context_, scope_};
-      visitor.Visit(argument);
-    }
+    for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
   }
 
   const ast::Function* type =
       entry->type.has_value() ? entry->type->get_if<ast::Function>() : nullptr;
   if (type == nullptr) {
-    context_->Error(call.function.location)
+    context->Error(call.function.location)
         << util::Detail(call.function.name) << " is not of function type.";
-    context_->Note(entry->location)
+    context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
-    for (const auto& argument : call.arguments) {
-      Expression visitor{context_, scope_};
-      visitor.Visit(argument);
-    }
+    for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
   }
 
   if (call.arguments.size() != type->parameters.size()) {
-    context_->Error(call.function.location)
+    context->Error(call.function.location)
         << util::Detail(call.function.name) << " expects "
         << util::Detail(type->parameters.size()) << " arguments but "
         << util::Detail(call.arguments.size()) << " were provided.";
-    context_->Note(entry->location)
+    context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
     copy.type = ast::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
-    for (const auto& argument : call.arguments) {
-      Expression visitor{context_, scope_};
-      visitor.Visit(argument);
-    }
+    for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
   }
 
@@ -200,13 +187,11 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   copy.type = type->return_type;
   copy.arguments.clear();
   for (std::size_t i = 0; i < call.arguments.size(); i++) {
-    Expression visitor{context_, scope_};
-    visitor.Visit(call.arguments[i]);
-    auto arg_copy = visitor.result();
+    auto arg_copy = Check(call.arguments[i], context, scope);
     auto arg_type = GetMeta(arg_copy).type;
     if (arg_type.has_value() && type->parameters[i].type.has_value() &&
         !(*arg_type == *type->parameters[i].type)) {
-      context_->Error(GetMeta(call.arguments[i]).location)
+      context->Error(GetMeta(call.arguments[i]).location)
           << "Type mismatch for parameter "
           << util::Detail(type->parameters[i].name) << " of call to "
           << util::Detail(call.function.name) << ". Expected type is "
@@ -218,13 +203,12 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   return copy;
 }
 
-ast::LogicalNot Expression::Check(const ast::LogicalNot& logical_not) const {
-  Expression visitor{context_, scope_};
-  visitor.Visit(logical_not.argument);
-  auto value_copy = visitor.result();
+ast::LogicalNot Check(const ast::LogicalNot& logical_not, Context* context,
+                      const Scope* scope) {
+  auto value_copy = Check(logical_not.argument, context, scope);
   const std::optional<ast::Type>& value_type = GetMeta(value_copy).type;
   if (value_type.has_value() && !(*value_type == ast::Primitive::BOOLEAN)) {
-    context_->Error(GetMeta(value_copy).location)
+    context->Error(GetMeta(value_copy).location)
         << "Argument to logical negation is of type "
         << util::Detail(*value_type) << ", not boolean.";
   }
@@ -233,11 +217,11 @@ ast::LogicalNot Expression::Check(const ast::LogicalNot& logical_not) const {
   return copy;
 }
 
-ast::Expression Check(Context* context, const Scope& scope,
-                      const ast::Expression& expression) {
-  Expression checker{context, &scope};
-  expression.Visit(checker);
-  return checker.result();
+ast::Expression Check(const ast::Expression& expression, Context* context,
+                      const Scope* scope) {
+  return expression.visit([&](const auto& value) -> ast::Expression {
+    return Check(value, context, scope);
+  });
 }
 
 Statement::Statement(Context* context, Scope* scope)
@@ -245,9 +229,7 @@ Statement::Statement(Context* context, Scope* scope)
 
 ast::DefineVariable Statement::Check(
     const ast::DefineVariable& definition) const {
-  Expression visitor{context_, scope_};
-  visitor.Visit(definition.value);
-  auto value_copy = visitor.result();
+  auto value_copy = analysis::Check(definition.value, context_, scope_);
   auto value_type = GetMeta(value_copy).type;
   if (value_type.has_value() && !value_type->is<ast::Primitive>()) {
     context_->Error(definition.location)
@@ -284,9 +266,7 @@ ast::DefineVariable Statement::Check(
 }
 
 ast::Assign Statement::Check(const ast::Assign& assignment) const {
-  Expression visitor{context_, scope_};
-  visitor.Visit(assignment.value);
-  auto value_copy = visitor.result();
+  auto value_copy = analysis::Check(assignment.value, context_, scope_);
   auto value_type = GetMeta(value_copy).type;
   auto* entry = scope_->Lookup(assignment.variable.name);
   if (entry == nullptr) {
@@ -313,9 +293,8 @@ ast::Assign Statement::Check(const ast::Assign& assignment) const {
 }
 
 ast::DoFunction Statement::Check(const ast::DoFunction& do_function) const {
-  Expression visitor{context_, scope_};
   auto copy = do_function;
-  copy.function_call = visitor.Check(do_function.function_call);
+  copy.function_call = analysis::Check(do_function.function_call, context_, scope_);
   auto type = copy.function_call.type;
   if (type.has_value() && !(*type == ast::Void{})) {
     context_->Warning(copy.location)
@@ -328,7 +307,7 @@ ast::DoFunction Statement::Check(const ast::DoFunction& do_function) const {
 
 ast::If Statement::Check(const ast::If& if_statement) const {
   auto copy = if_statement;
-  copy.condition = analysis::Check(context_, *scope_, if_statement.condition);
+  copy.condition = analysis::Check(if_statement.condition, context_, scope_);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
@@ -349,7 +328,7 @@ ast::If Statement::Check(const ast::If& if_statement) const {
 ast::While Statement::Check(const ast::While& while_statement) const {
   auto copy = while_statement;
   copy.condition =
-      analysis::Check(context_, *scope_, while_statement.condition);
+      analysis::Check(while_statement.condition, context_, scope_);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
@@ -371,7 +350,7 @@ ast::ReturnVoid Statement::Check(
 
 ast::Return Statement::Check(const ast::Return& return_statement) const {
   auto copy = return_statement;
-  copy.value = analysis::Check(context_, *scope_, return_statement.value);
+  copy.value = analysis::Check(return_statement.value, context_, scope_);
   return copy;
 }
 

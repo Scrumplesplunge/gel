@@ -3,24 +3,6 @@
 #include <sstream>
 
 namespace ast {
-namespace {
-
-template <typename F>
-class LambdaExpressionVisitor : public ExpressionVisitor {
- public:
-  LambdaExpressionVisitor(F* functor) : functor_(functor) {}
-  using ExpressionVisitor::Visit;
-  void Visit(const Identifier& i) override { (*functor_)(i); }
-  void Visit(const Boolean& b) override { (*functor_)(b); }
-  void Visit(const Integer& i) override { (*functor_)(i); }
-  void Visit(const Binary& b) override { (*functor_)(b); }
-  void Visit(const FunctionCall& f) override { (*functor_)(f); }
-  void Visit(const LogicalNot& l) override { (*functor_)(l); }
- private:
-  F* functor_;
-};
-
-}  // namespace
 
 bool operator==(const Function& left, const Function& right) {
   if (!(left.return_type == right.return_type)) return false;
@@ -64,16 +46,11 @@ std::ostream& operator<<(std::ostream& output, const Type& type) {
 }
 
 const AnyExpression& GetMeta(const Expression& expression) {
-  const AnyExpression* meta = nullptr;
-  auto get_meta = [&](const auto& node) { meta = &node; };
-  LambdaExpressionVisitor visitor{&get_meta};
-  visitor.Visit(expression);
-  if (meta == nullptr) throw std::logic_error("Visit failed.");
-  return *meta;
+  return expression.visit(
+      [](const auto& x) -> const AnyExpression& { return x; });
 }
 
 }  // namespace ast
 
-template class visitable::Node<ast::ExpressionVisitor>;
 template class visitable::Node<ast::StatementVisitor>;
 template class visitable::Node<ast::TopLevelVisitor>;

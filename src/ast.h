@@ -35,8 +35,14 @@ inline bool operator==(Void, Void) { return true; }
 bool operator==(const Function& left, const Function& right);
 std::ostream& operator<<(std::ostream& output, const Type& type);
 
-struct ExpressionVisitor;
-using Expression = visitable::Node<ExpressionVisitor>;
+struct Identifier;
+struct Boolean;
+struct Integer;
+struct Binary;
+struct FunctionCall;
+struct LogicalNot;
+using Expression =
+    one_of<Identifier, Boolean, Integer, Binary, FunctionCall, LogicalNot>;
 
 struct AnyExpression {
   Reader::Location location;
@@ -81,16 +87,6 @@ struct FunctionCall : AnyExpression {
 
 struct LogicalNot : AnyExpression {
   Expression argument;
-};
-
-struct ExpressionVisitor {
-  void Visit(const Expression& expression) { expression.Visit(*this); }
-  virtual void Visit(const Identifier&) = 0;
-  virtual void Visit(const Boolean&) = 0;
-  virtual void Visit(const Integer&) = 0;
-  virtual void Visit(const Binary&) = 0;
-  virtual void Visit(const FunctionCall&) = 0;
-  virtual void Visit(const LogicalNot&) = 0;
 };
 
 const AnyExpression& GetMeta(const Expression& expression);
@@ -163,6 +159,5 @@ struct TopLevelVisitor {
 
 }  // namespace ast
 
-extern template class visitable::Node<ast::ExpressionVisitor>;
 extern template class visitable::Node<ast::StatementVisitor>;
 extern template class visitable::Node<ast::TopLevelVisitor>;

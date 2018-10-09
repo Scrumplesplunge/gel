@@ -25,21 +25,13 @@ constexpr char kFooter[] = R"(
 int main() { return gel_main(); }
 )";
 
-class Expression : public ast::ExpressionVisitor {
- public:
-  Expression(std::ostream& output) : output_(output) {}
-
-  using ExpressionVisitor::Visit;
-  void Visit(const ast::Identifier&) override;
-  void Visit(const ast::Boolean&) override;
-  void Visit(const ast::Integer&) override;
-  void Visit(const ast::Binary&) override;
-  void Visit(const ast::FunctionCall&) override;
-  void Visit(const ast::LogicalNot&) override;
-
- private:
-  std::ostream& output_;
-};
+void CompileExpression(const ast::Identifier&, std::ostream*);
+void CompileExpression(const ast::Boolean&, std::ostream*);
+void CompileExpression(const ast::Integer&, std::ostream*);
+void CompileExpression(const ast::Binary&, std::ostream*);
+void CompileExpression(const ast::FunctionCall&, std::ostream*);
+void CompileExpression(const ast::LogicalNot&, std::ostream*);
+void CompileExpression(const ast::Expression&, std::ostream*);
 
 class Statement : public ast::StatementVisitor {
  public:
@@ -74,115 +66,138 @@ class TopLevel : public ast::TopLevelVisitor {
 };
 
 void PrintType(const ast::Type& type, std::ostream* output) {
-  type.visit(
-      [&](const auto& node) {
-        using value_type = std::decay_t<decltype(node)>;
-        if constexpr (std::is_same_v<value_type, ast::Void>) {
-          *output << "void";
-        } else if constexpr (std::is_same_v<value_type, ast::Primitive>) {
-          switch (node) {
-            case ast::Primitive::BOOLEAN:
-              *output << "bool";
-              break;
-            case ast::Primitive::INTEGER:
-              *output << "int_least64_t";
-              break;
-          }
-        } else if constexpr (std::is_same_v<value_type, ast::Function>) {
-          throw std::logic_error(
-              "No function types should have to be visited when compiling.");
-        }
-      });
+  type.visit([&](const auto& node) {
+    using value_type = std::decay_t<decltype(node)>;
+    if constexpr (std::is_same_v<value_type, ast::Void>) {
+      *output << "void";
+    } else if constexpr (std::is_same_v<value_type, ast::Primitive>) {
+      switch (node) {
+        case ast::Primitive::BOOLEAN:
+          *output << "bool";
+          break;
+        case ast::Primitive::INTEGER:
+          *output << "int_least64_t";
+          break;
+      }
+    } else if constexpr (std::is_same_v<value_type, ast::Function>) {
+      throw std::logic_error(
+          "No function types should have to be visited when compiling.");
+    }
+  });
 }
 
-void Expression::Visit(const ast::Identifier& identifier) {
-  output_ << "gel_" << identifier.name;
+void CompileExpression(const ast::Identifier& identifier,
+                       std::ostream* output) {
+  *output << "gel_" << identifier.name;
 }
 
-void Expression::Visit(const ast::Boolean& boolean) {
-  output_ << (boolean.value ? "true" : "false");
+void CompileExpression(const ast::Boolean& boolean, std::ostream* output) {
+  *output << (boolean.value ? "true" : "false");
 }
 
-void Expression::Visit(const ast::Integer& integer) {
-  output_ << integer.value;
+void CompileExpression(const ast::Integer& integer, std::ostream* output) {
+  *output << integer.value;
 }
 
-void Expression::Visit(const ast::Binary& binary) {
-  output_ << "(";
-  Visit(binary.left);
-  output_ << " ";
+void CompileExpression(const ast::Binary& binary, std::ostream* output) {
+  *output << "(";
+  CompileExpression(binary.left, output);
+  *output << " ";
   switch (binary.operation) {
-    case ast::Binary::ADD: output_ << "+"; break;
-    case ast::Binary::COMPARE_EQ: output_ << "=="; break;
-    case ast::Binary::COMPARE_GE: output_ << ">="; break;
-    case ast::Binary::COMPARE_GT: output_ << ">"; break;
-    case ast::Binary::COMPARE_LE: output_ << "<="; break;
-    case ast::Binary::COMPARE_LT: output_ << "<"; break;
-    case ast::Binary::COMPARE_NE: output_ << "!="; break;
-    case ast::Binary::DIVIDE: output_ << "/"; break;
-    case ast::Binary::LOGICAL_AND: output_ << "&&"; break;
-    case ast::Binary::LOGICAL_OR: output_ << "||"; break;
-    case ast::Binary::MULTIPLY: output_ << "*"; break;
-    case ast::Binary::SUBTRACT: output_ << "-"; break;
+    case ast::Binary::ADD:
+      *output << "+";
+      break;
+    case ast::Binary::COMPARE_EQ:
+      *output << "==";
+      break;
+    case ast::Binary::COMPARE_GE:
+      *output << ">=";
+      break;
+    case ast::Binary::COMPARE_GT:
+      *output << ">";
+      break;
+    case ast::Binary::COMPARE_LE:
+      *output << "<=";
+      break;
+    case ast::Binary::COMPARE_LT:
+      *output << "<";
+      break;
+    case ast::Binary::COMPARE_NE:
+      *output << "!=";
+      break;
+    case ast::Binary::DIVIDE:
+      *output << "/";
+      break;
+    case ast::Binary::LOGICAL_AND:
+      *output << "&&";
+      break;
+    case ast::Binary::LOGICAL_OR:
+      *output << "||";
+      break;
+    case ast::Binary::MULTIPLY:
+      *output << "*";
+      break;
+    case ast::Binary::SUBTRACT:
+      *output << "-";
+      break;
   }
-  output_ << " ";
-  Visit(binary.right);
-  output_ << ")";
+  *output << " ";
+  CompileExpression(binary.right, output);
+  *output << ")";
 }
 
-void Expression::Visit(const ast::FunctionCall& call) {
-  Visit(call.function);
-  output_ << "(";
+void CompileExpression(const ast::FunctionCall& call, std::ostream* output) {
+  CompileExpression(call.function, output);
+  *output << "(";
   bool first = true;
   for (const auto& argument : call.arguments) {
     if (first) {
       first = false;
     } else {
-      output_ << ", ";
+      *output << ", ";
     }
-    Visit(argument);
+    CompileExpression(argument, output);
   }
-  output_ << ")";
+  *output << ")";
 }
 
-void Expression::Visit(const ast::LogicalNot& op) {
-  output_ << "!";
-  Visit(op.argument);
+void CompileExpression(const ast::LogicalNot& op, std::ostream* output) {
+  *output << "!";
+  CompileExpression(op.argument, output);
+}
+
+void CompileExpression(const ast::Expression& expression,
+                       std::ostream* output) {
+  expression.visit([&](const auto& node) { CompileExpression(node, output); });
 }
 
 void Statement::Visit(const ast::DefineVariable& definition) {
   output_ << util::Spaces{indent_};
   PrintType(definition.variable.type.value(), &output_);
   output_ << " ";
-  Expression name_codegen{output_};
-  name_codegen.Visit(definition.variable);
+  CompileExpression(definition.variable, &output_);
   output_ << " = ";
-  Expression codegen{output_};
-  codegen.Visit(definition.value);
+  CompileExpression(definition.value, &output_);
   output_ << ";\n";
 }
 
 void Statement::Visit(const ast::Assign& assignment) {
   output_ << util::Spaces{indent_};
-  Expression name_codegen{output_};
-  name_codegen.Visit(assignment.variable);
+  CompileExpression(assignment.variable, &output_);
   output_ << " = ";
-  Expression codegen{output_};
-  codegen.Visit(assignment.value);
+  CompileExpression(assignment.value, &output_);
   output_ << ";\n";
 }
 
 void Statement::Visit(const ast::DoFunction& do_function) {
   output_ << util::Spaces{indent_};
-  Expression codegen{output_};
-  codegen.Visit(do_function.function_call);
+  CompileExpression(do_function.function_call, &output_);
   output_ << ";\n";
 }
 
 void Statement::Visit(const ast::If& if_statement) {
   output_ << util::Spaces{indent_} << "if (";
-  Expression condition_codegen{output_};
-  condition_codegen.Visit(if_statement.condition);
+  CompileExpression(if_statement.condition, &output_);
   output_ << ") {\n";
   Statement codegen{output_, indent_ + 2};
   codegen.Visit(if_statement.if_true);
@@ -193,8 +208,7 @@ void Statement::Visit(const ast::If& if_statement) {
 
 void Statement::Visit(const ast::While& while_statement) {
   output_ << util::Spaces{indent_} << "while (";
-  Expression condition_codegen{output_};
-  condition_codegen.Visit(while_statement.condition);
+  CompileExpression(while_statement.condition, &output_);
   output_ << ") {\n";
   Statement codegen{output_, indent_ + 2};
   codegen.Visit(while_statement.body);
@@ -207,8 +221,7 @@ void Statement::Visit(const ast::ReturnVoid&) {
 
 void Statement::Visit(const ast::Return& return_statement) {
   output_ << util::Spaces{indent_} << "return ";
-  Expression codegen{output_};
-  codegen.Visit(return_statement.value);
+  CompileExpression(return_statement.value, &output_);
   output_ << ";\n";
 }
 
@@ -223,8 +236,7 @@ void TopLevel::Visit(const ast::DefineFunction& definition) {
       definition.function.type.value().get_if<ast::Function>();
   PrintType(type->return_type, &output_);
   output_ << " ";
-  Expression name_codegen{output_};
-  name_codegen.Visit(definition.function);
+  CompileExpression(definition.function, &output_);
   output_ << "(";
   bool first = true;
   for (const auto& parameter : definition.parameters) {
@@ -235,8 +247,7 @@ void TopLevel::Visit(const ast::DefineFunction& definition) {
     }
     PrintType(parameter.type.value(), &output_);
     output_ << " ";
-    Expression name_codegen{output_};
-    name_codegen.Visit(parameter);
+    CompileExpression(parameter, &output_);
   }
   output_ << ") {\n";
   Statement codegen{output_, 2};
