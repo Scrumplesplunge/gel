@@ -33,25 +33,16 @@ void CompileExpression(const ast::FunctionCall&, std::ostream*);
 void CompileExpression(const ast::LogicalNot&, std::ostream*);
 void CompileExpression(const ast::Expression&, std::ostream*);
 
-class Statement : public ast::StatementVisitor {
- public:
-  Statement(std::ostream& output, int indent)
-      : output_(output), indent_(indent) {}
-
-  using StatementVisitor::Visit;
-  void Visit(const ast::DefineVariable&) override;
-  void Visit(const ast::Assign&) override;
-  void Visit(const ast::DoFunction&) override;
-  void Visit(const ast::If&) override;
-  void Visit(const ast::While&) override;
-  void Visit(const ast::ReturnVoid&) override;
-  void Visit(const ast::Return&) override;
-  void Visit(const std::vector<ast::Statement>& statements);
-
- private:
-  std::ostream& output_;
-  int indent_;
-};
+void CompileStatement(const ast::DefineVariable&, std::ostream*, int indent);
+void CompileStatement(const ast::Assign&, std::ostream*, int indent);
+void CompileStatement(const ast::DoFunction&, std::ostream*, int indent);
+void CompileStatement(const ast::If&, std::ostream*, int indent);
+void CompileStatement(const ast::While&, std::ostream*, int indent);
+void CompileStatement(const ast::ReturnVoid&, std::ostream*, int indent);
+void CompileStatement(const ast::Return&, std::ostream*, int indent);
+void CompileStatement(const std::vector<ast::Statement>&, std::ostream*,
+                      int indent);
+void CompileStatement(const ast::Statement&, std::ostream*, int indent);
 
 class TopLevel : public ast::TopLevelVisitor {
  public:
@@ -171,62 +162,73 @@ void CompileExpression(const ast::Expression& expression,
   expression.visit([&](const auto& node) { CompileExpression(node, output); });
 }
 
-void Statement::Visit(const ast::DefineVariable& definition) {
-  output_ << util::Spaces{indent_};
-  PrintType(definition.variable.type.value(), &output_);
-  output_ << " ";
-  CompileExpression(definition.variable, &output_);
-  output_ << " = ";
-  CompileExpression(definition.value, &output_);
-  output_ << ";\n";
+void CompileStatement(const ast::DefineVariable& definition,
+                      std::ostream* output, int indent) {
+  *output << util::Spaces{indent};
+  PrintType(definition.variable.type.value(), &*output);
+  *output << " ";
+  CompileExpression(definition.variable, &*output);
+  *output << " = ";
+  CompileExpression(definition.value, &*output);
+  *output << ";\n";
 }
 
-void Statement::Visit(const ast::Assign& assignment) {
-  output_ << util::Spaces{indent_};
-  CompileExpression(assignment.variable, &output_);
-  output_ << " = ";
-  CompileExpression(assignment.value, &output_);
-  output_ << ";\n";
+void CompileStatement(const ast::Assign& assignment, std::ostream* output,
+                      int indent) {
+  *output << util::Spaces{indent};
+  CompileExpression(assignment.variable, &*output);
+  *output << " = ";
+  CompileExpression(assignment.value, &*output);
+  *output << ";\n";
 }
 
-void Statement::Visit(const ast::DoFunction& do_function) {
-  output_ << util::Spaces{indent_};
-  CompileExpression(do_function.function_call, &output_);
-  output_ << ";\n";
+void CompileStatement(const ast::DoFunction& do_function, std::ostream* output, int indent) {
+  *output << util::Spaces{indent};
+  CompileExpression(do_function.function_call, &*output);
+  *output << ";\n";
 }
 
-void Statement::Visit(const ast::If& if_statement) {
-  output_ << util::Spaces{indent_} << "if (";
-  CompileExpression(if_statement.condition, &output_);
-  output_ << ") {\n";
-  Statement codegen{output_, indent_ + 2};
-  codegen.Visit(if_statement.if_true);
-  output_ << util::Spaces{indent_} << "} else {\n";
-  codegen.Visit(if_statement.if_false);
-  output_ << util::Spaces{indent_} << "}\n";
+void CompileStatement(const ast::If& if_statement, std::ostream* output,
+                      int indent) {
+  *output << util::Spaces{indent} << "if (";
+  CompileExpression(if_statement.condition, &*output);
+  *output << ") {\n";
+  CompileStatement(if_statement.if_true, output, indent + 2);
+  *output << util::Spaces{indent} << "} else {\n";
+  CompileStatement(if_statement.if_false, output, indent + 2);
+  *output << util::Spaces{indent} << "}\n";
 }
 
-void Statement::Visit(const ast::While& while_statement) {
-  output_ << util::Spaces{indent_} << "while (";
-  CompileExpression(while_statement.condition, &output_);
-  output_ << ") {\n";
-  Statement codegen{output_, indent_ + 2};
-  codegen.Visit(while_statement.body);
-  output_ << util::Spaces{indent_} << "}\n";
+void CompileStatement(const ast::While& while_statement, std::ostream* output,
+                      int indent) {
+  *output << util::Spaces{indent} << "while (";
+  CompileExpression(while_statement.condition, &*output);
+  *output << ") {\n";
+  CompileStatement(while_statement.body, output, indent + 2);
+  *output << util::Spaces{indent} << "}\n";
 }
 
-void Statement::Visit(const ast::ReturnVoid&) {
-  output_ << util::Spaces{indent_} << "return;\n";
+void CompileStatement(const ast::ReturnVoid&, std::ostream* output,
+                      int indent) {
+  *output << util::Spaces{indent} << "return;\n";
 }
 
-void Statement::Visit(const ast::Return& return_statement) {
-  output_ << util::Spaces{indent_} << "return ";
-  CompileExpression(return_statement.value, &output_);
-  output_ << ";\n";
+void CompileStatement(const ast::Return& return_statement, std::ostream* output,
+                      int indent) {
+  *output << util::Spaces{indent} << "return ";
+  CompileExpression(return_statement.value, output);
+  *output << ";\n";
 }
 
-void Statement::Visit(const std::vector<ast::Statement>& statements) {
-  for (const auto& statement : statements) Visit(statement);
+void CompileStatement(const std::vector<ast::Statement>& statements,
+                      std::ostream* output, int indent) {
+  for (const auto& statement : statements)
+    CompileStatement(statement, output, indent);
+}
+
+void CompileStatement(const ast::Statement& statement, std::ostream* output,
+                      int indent) {
+  statement.visit([&](const auto& x) { CompileStatement(x, output, indent); });
 }
 
 TopLevel::TopLevel(std::ostream& output) : output_(output) {}
@@ -250,8 +252,7 @@ void TopLevel::Visit(const ast::DefineFunction& definition) {
     CompileExpression(parameter, &output_);
   }
   output_ << ") {\n";
-  Statement codegen{output_, 2};
-  codegen.Visit(definition.body);
+  CompileStatement(definition.body, &output_, 2);
   output_ << "}\n";
 }
 

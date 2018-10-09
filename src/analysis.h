@@ -59,33 +59,16 @@ ast::FunctionCall Check(const ast::FunctionCall&, Context*, const Scope*);
 ast::LogicalNot Check(const ast::LogicalNot&, Context*, const Scope*);
 ast::Expression Check(const ast::Expression&, Context*, const Scope*);
 
-class Statement : public ast::StatementVisitor {
- public:
-  Statement(Context* context, Scope* scope);
-  void Visit(const ast::DefineVariable& d) override { result_ = Check(d); }
-  void Visit(const ast::Assign& a) override { result_ = Check(a); }
-  void Visit(const ast::DoFunction& d) override { result_ = Check(d); }
-  void Visit(const ast::If& i) override { result_ = Check(i); }
-  void Visit(const ast::While& w) override { result_ = Check(w); }
-  void Visit(const ast::ReturnVoid& r) override { result_ = Check(r); }
-  void Visit(const ast::Return& r) override { result_ = Check(r); }
-  ast::DefineVariable Check(const ast::DefineVariable&) const;
-  ast::Assign Check(const ast::Assign&) const;
-  ast::DoFunction Check(const ast::DoFunction&) const;
-  ast::If Check(const ast::If&) const;
-  ast::While Check(const ast::While&) const;
-  ast::ReturnVoid Check(const ast::ReturnVoid&) const;
-  ast::Return Check(const ast::Return&) const;
-  std::vector<ast::Statement> Check(const std::vector<ast::Statement>&) const;
-  ast::Statement result() { return std::move(result_.value()); }
- private:
-  Context* context_;
-  Scope* scope_;
-  std::optional<ast::Statement> result_;
-};
-
-ast::Statement Check(Context* context, Scope* scope,
-                     const ast::Statement& statement);
+ast::DefineVariable Check(const ast::DefineVariable&, Context*, Scope*);
+ast::Assign Check(const ast::Assign&, Context*, Scope*);
+ast::DoFunction Check(const ast::DoFunction&, Context*, Scope*);
+ast::If Check(const ast::If&, Context*, Scope*);
+ast::While Check(const ast::While&, Context*, Scope*);
+ast::ReturnVoid Check(const ast::ReturnVoid&, Context*, Scope*);
+ast::Return Check(const ast::Return&, Context*, Scope*);
+std::vector<ast::Statement> Check(const std::vector<ast::Statement>&, Context*,
+                                  Scope*);
+ast::Statement Check(const ast::Statement&, Context*, Scope*);
 
 class TopLevel : public ast::TopLevelVisitor {
  public:

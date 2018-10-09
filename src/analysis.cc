@@ -224,15 +224,12 @@ ast::Expression Check(const ast::Expression& expression, Context* context,
   });
 }
 
-Statement::Statement(Context* context, Scope* scope)
-    : context_(context), scope_(scope) {}
-
-ast::DefineVariable Statement::Check(
-    const ast::DefineVariable& definition) const {
-  auto value_copy = analysis::Check(definition.value, context_, scope_);
+ast::DefineVariable Check(const ast::DefineVariable& definition,
+                          Context* context, Scope* scope) {
+  auto value_copy = Check(definition.value, context, scope);
   auto value_type = GetMeta(value_copy).type;
   if (value_type.has_value() && !value_type->is<ast::Primitive>()) {
-    context_->Error(definition.location)
+    context->Error(definition.location)
         << "Assignment expression in definition yields type "
         << util::Detail(*value_type)
         << ", which is not a suitable type for a variable.";
@@ -244,60 +241,62 @@ ast::DefineVariable Statement::Check(
   // that was defined in the current scope. However, there may still be a name
   // conflict in a surrounding scope. This isn't strictly a bug, so it should
   // produce a warning.
-  auto* previous_entry = scope_->Lookup(definition.variable.name);
-  if (scope_->Define(definition.variable.name, entry)) {
+  auto* previous_entry = scope->Lookup(definition.variable.name);
+  if (scope->Define(definition.variable.name, entry)) {
     if (previous_entry) {
-      context_->Warning(definition.location)
+      context->Warning(definition.location)
           << "Definition of " << util::Detail(definition.variable.name)
           << " shadows an existing definition.";
-      context_->Note(previous_entry->location)
+      context->Note(previous_entry->location)
           << util::Detail(definition.variable.name)
           << " was previously declared here.";
     }
   } else {
-    context_->Error(definition.location)
+    context->Error(definition.location)
         << "Redefinition of variable " << util::Detail(definition.variable.name)
         << ".";
-    context_->Note(previous_entry->location)
+    context->Note(previous_entry->location)
         << util::Detail(definition.variable.name)
         << " was previously declared here.";
   }
   return copy;
 }
 
-ast::Assign Statement::Check(const ast::Assign& assignment) const {
-  auto value_copy = analysis::Check(assignment.value, context_, scope_);
+ast::Assign Check(const ast::Assign& assignment, Context* context,
+                  Scope* scope) {
+  auto value_copy = Check(assignment.value, context, scope);
   auto value_type = GetMeta(value_copy).type;
-  auto* entry = scope_->Lookup(assignment.variable.name);
+  auto* entry = scope->Lookup(assignment.variable.name);
   if (entry == nullptr) {
-    context_->Error(assignment.location)
+    context->Error(assignment.location)
         << "Assignment to undefined variable "
         << util::Detail(assignment.variable.name) << ". Did you mean to write "
         << util::Detail("let") << "?";
     // Assume a definition was intended.
-    scope_->Define(assignment.variable.name,
+    scope->Define(assignment.variable.name,
                    Scope::Entry{assignment.location, value_type});
-    entry = scope_->Lookup(assignment.variable.name);
+    entry = scope->Lookup(assignment.variable.name);
   }
   if (entry->type.has_value() && value_type.has_value() &&
       !(*entry->type == *value_type)) {
-    context_->Error(assignment.location)
+    context->Error(assignment.location)
         << "Type mismatch in assignment: "
         << util::Detail(assignment.variable.name) << " has type "
         << util::Detail(*entry->type) << ", but expression yields type "
         << util::Detail(*value_type) << ".";
-    context_->Note(entry->location)
+    context->Note(entry->location)
         << util::Detail(assignment.variable.name) << " is declared here.";
   }
   return assignment;
 }
 
-ast::DoFunction Statement::Check(const ast::DoFunction& do_function) const {
+ast::DoFunction Check(const ast::DoFunction& do_function, Context* context,
+                      Scope* scope) {
   auto copy = do_function;
-  copy.function_call = analysis::Check(do_function.function_call, context_, scope_);
+  copy.function_call = Check(do_function.function_call, context, scope);
   auto type = copy.function_call.type;
   if (type.has_value() && !(*type == ast::Void{})) {
-    context_->Warning(copy.location)
+    context->Warning(copy.location)
         << "Discarding return value of type " << util::Detail(*type)
         << " in call to " << util::Detail(copy.function_call.function.name)
         << ".";
@@ -305,68 +304,66 @@ ast::DoFunction Statement::Check(const ast::DoFunction& do_function) const {
   return copy;
 }
 
-ast::If Statement::Check(const ast::If& if_statement) const {
+ast::If Check(const ast::If& if_statement, Context* context, Scope* scope) {
   auto copy = if_statement;
-  copy.condition = analysis::Check(if_statement.condition, context_, scope_);
+  copy.condition = Check(if_statement.condition, context, scope);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
-    context_->Error(GetMeta(copy.condition).location)
+    context->Error(GetMeta(copy.condition).location)
         << "Condition for if statement has type "
         << util::Detail(*condition_type) << ", not "
         << util::Detail(ast::Primitive::BOOLEAN) << ".";
   }
-  Scope true_scope{scope_};
-  Statement true_checker{context_, &true_scope};
-  copy.if_true = true_checker.Check(if_statement.if_true);
-  Scope false_scope{scope_};
-  Statement false_checker{context_, &false_scope};
-  copy.if_false = false_checker.Check(if_statement.if_false);
+  Scope true_scope{scope};
+  copy.if_true = Check(if_statement.if_true, context, &true_scope);
+  Scope false_scope{scope};
+  copy.if_false = Check(if_statement.if_false, context, &false_scope);
   return copy;
 }
 
-ast::While Statement::Check(const ast::While& while_statement) const {
+ast::While Check(const ast::While& while_statement, Context* context,
+                 Scope* scope) {
   auto copy = while_statement;
-  copy.condition =
-      analysis::Check(while_statement.condition, context_, scope_);
+  copy.condition = Check(while_statement.condition, context, scope);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
       !(*condition_type == ast::Primitive::BOOLEAN)) {
-    context_->Error(GetMeta(copy.condition).location)
+    context->Error(GetMeta(copy.condition).location)
         << "Condition for while statement has type "
         << util::Detail(*condition_type) << ", not "
         << util::Detail(ast::Primitive::BOOLEAN) << ".";
   }
-  Scope body_scope{scope_};
-  Statement body_checker{context_, &body_scope};
-  copy.body = body_checker.Check(while_statement.body);
+  Scope body_scope{scope};
+  copy.body = Check(while_statement.body, context, &body_scope);
   return copy;
 }
 
-ast::ReturnVoid Statement::Check(
-    const ast::ReturnVoid& return_statement) const {
+ast::ReturnVoid Check(const ast::ReturnVoid& return_statement, Context*,
+                      Scope*) {
   return return_statement;
 }
 
-ast::Return Statement::Check(const ast::Return& return_statement) const {
+ast::Return Check(const ast::Return& return_statement, Context* context,
+                  Scope* scope) {
   auto copy = return_statement;
-  copy.value = analysis::Check(return_statement.value, context_, scope_);
+  copy.value = Check(return_statement.value, context, scope);
   return copy;
 }
 
-std::vector<ast::Statement> Statement::Check(
-    const std::vector<ast::Statement>& statements) const {
+std::vector<ast::Statement> Check(const std::vector<ast::Statement>& statements,
+                                  Context* context, Scope* scope) {
   std::vector<ast::Statement> result;
   for (const auto& statement : statements)
-    result.push_back(analysis::Check(context_, scope_, statement));
+    result.push_back(Check(statement, context, scope));
   return result;
 }
 
-ast::Statement Check(Context* context, Scope* scope,
-                     const ast::Statement& statement) {
-  Statement checker{context, scope};
-  statement.Visit(checker);
-  return checker.result();
+ast::Statement Check(const ast::Statement& statement, Context* context,
+                     Scope* scope) {
+  return statement.visit([&](const auto& x) -> ast::Statement {
+    return Check(x, context, scope);
+  });
 }
 
 TopLevel::TopLevel(Context* context, Scope* scope)
@@ -403,8 +400,7 @@ ast::DefineFunction TopLevel::Check(
           << "Previous definition is here.";
     }
   }
-  Statement checker{context_, &function_scope};
-  copy.body = checker.Check(definition.body);
+  copy.body = analysis::Check(definition.body, context_, &function_scope);
   return copy;
 }
 

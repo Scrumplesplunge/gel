@@ -52,5 +52,4 @@ const AnyExpression& GetMeta(const Expression& expression) {
 
 }  // namespace ast
 
-template class visitable::Node<ast::StatementVisitor>;
 template class visitable::Node<ast::TopLevelVisitor>;

@@ -91,8 +91,15 @@ struct LogicalNot : AnyExpression {
 
 const AnyExpression& GetMeta(const Expression& expression);
 
-struct StatementVisitor;
-using Statement = visitable::Node<StatementVisitor>;
+struct DefineVariable;
+struct Assign;
+struct DoFunction;
+struct If;
+struct While;
+struct ReturnVoid;
+struct Return;
+using Statement =
+    one_of<DefineVariable, Assign, DoFunction, If, While, ReturnVoid, Return>;
 
 struct AnyStatement {
   Reader::Location location;
@@ -128,17 +135,6 @@ struct Return : AnyStatement {
   Expression value;
 };
 
-struct StatementVisitor {
-  void Visit(const Statement& statement) { statement.Visit(*this); }
-  virtual void Visit(const DefineVariable&) = 0;
-  virtual void Visit(const Assign&) = 0;
-  virtual void Visit(const DoFunction&) = 0;
-  virtual void Visit(const If&) = 0;
-  virtual void Visit(const While&) = 0;
-  virtual void Visit(const ReturnVoid&) = 0;
-  virtual void Visit(const Return&) = 0;
-};
-
 struct TopLevelVisitor;
 using TopLevel = visitable::Node<TopLevelVisitor>;
 
@@ -159,5 +155,4 @@ struct TopLevelVisitor {
 
 }  // namespace ast
 
-extern template class visitable::Node<ast::StatementVisitor>;
 extern template class visitable::Node<ast::TopLevelVisitor>;
