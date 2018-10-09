@@ -16,7 +16,6 @@ GEL_DEPS =  \
 	target-c  \
 	util  \
 	value  \
-	visitable  \
 	main
 bin/gel: $(patsubst %, obj/%.o, ${GEL_DEPS})
 

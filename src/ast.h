@@ -3,7 +3,6 @@
 #include "one_of.h"
 #include "reader.h"
 #include "value.h"
-#include "visitable.h"
 
 #include <memory>
 #include <optional>
@@ -135,8 +134,8 @@ struct Return : AnyStatement {
   Expression value;
 };
 
-struct TopLevelVisitor;
-using TopLevel = visitable::Node<TopLevelVisitor>;
+struct DefineFunction;
+using TopLevel = one_of<DefineFunction, std::vector<DefineFunction>>;
 
 struct AnyTopLevel {
   Reader::Location location;
@@ -148,11 +147,4 @@ struct DefineFunction : AnyTopLevel {
   std::vector<Statement> body;
 };
 
-struct TopLevelVisitor {
-  virtual void Visit(const DefineFunction&) = 0;
-  virtual void Visit(const std::vector<DefineFunction>&) = 0;
-};
-
 }  // namespace ast
-
-extern template class visitable::Node<ast::TopLevelVisitor>;

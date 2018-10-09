@@ -274,7 +274,7 @@ ast::Assign Check(const ast::Assign& assignment, Context* context,
         << util::Detail("let") << "?";
     // Assume a definition was intended.
     scope->Define(assignment.variable.name,
-                   Scope::Entry{assignment.location, value_type});
+                  Scope::Entry{assignment.location, value_type});
     entry = scope->Lookup(assignment.variable.name);
   }
   if (entry->type.has_value() && value_type.has_value() &&
@@ -366,11 +366,8 @@ ast::Statement Check(const ast::Statement& statement, Context* context,
   });
 }
 
-TopLevel::TopLevel(Context* context, Scope* scope)
-    : context_(context), scope_(scope) {}
-
-ast::DefineFunction TopLevel::Check(
-    const ast::DefineFunction& definition) const {
+ast::DefineFunction Check(const ast::DefineFunction& definition,
+                          Context* context, Scope* scope) {
   // For now, treat all input/outputs as integers.
   auto copy = definition;
   for (auto& parameter : copy.parameters) {
@@ -378,46 +375,44 @@ ast::DefineFunction TopLevel::Check(
   }
   ast::Type type = ast::Function{ast::Primitive::INTEGER, copy.parameters};
   copy.function.type = type;
-  if (!scope_->Define(definition.function.name,
-                      Scope::Entry{definition.location, type})) {
-    context_->Error(definition.location)
+  if (!scope->Define(definition.function.name,
+                     Scope::Entry{definition.location, type})) {
+    context->Error(definition.location)
         << "Redefinition of name " << util::Detail(definition.function.name)
         << ".";
-    auto* previous_entry = scope_->Lookup(definition.function.name);
-    context_->Note(previous_entry->location)
+    auto* previous_entry = scope->Lookup(definition.function.name);
+    context->Note(previous_entry->location)
         << util::Detail(definition.function.name)
         << " previously declared here.";
   }
-  Scope function_scope{scope_};
+  Scope function_scope{scope};
   for (const auto& parameter : copy.parameters) {
     if (!function_scope.Define(
             parameter.name, Scope::Entry{parameter.location, parameter.type})) {
-      context_->Error(parameter.location)
-          << "Multiple parameters called " << util::Detail(parameter.name)
-          << ".";
+      context->Error(parameter.location) << "Multiple parameters called "
+                                         << util::Detail(parameter.name) << ".";
       auto* previous_entry = function_scope.Lookup(parameter.name);
-      context_->Note(previous_entry->location)
-          << "Previous definition is here.";
+      context->Note(previous_entry->location) << "Previous definition is here.";
     }
   }
-  copy.body = analysis::Check(definition.body, context_, &function_scope);
+  copy.body = Check(definition.body, context, &function_scope);
   return copy;
 }
 
-std::vector<ast::DefineFunction> TopLevel::Check(
-    const std::vector<ast::DefineFunction>& definitions) const {
+std::vector<ast::DefineFunction> Check(
+    const std::vector<ast::DefineFunction>& definitions, Context* context,
+    Scope* scope) {
   std::vector<ast::DefineFunction> result;
   for (const auto& definition : definitions) {
-    result.push_back(Check(definition));
+    result.push_back(Check(definition, context, scope));
   }
   return result;
 }
 
-ast::TopLevel Check(Context* context, Scope* scope,
-                    const ast::TopLevel& top_level) {
-  TopLevel checker{context, scope};
-  top_level.Visit(checker);
-  return checker.result();
+ast::TopLevel Check(const ast::TopLevel& top_level, Context* context,
+                    Scope* scope) {
+  return top_level.visit(
+      [&](const auto& x) -> ast::TopLevel { return Check(x, context, scope); });
 }
 
 }  // namespace analysis

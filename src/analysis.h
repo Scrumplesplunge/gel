@@ -22,7 +22,11 @@ class MessageBuilder {
   MessageBuilder(MessageBuilder&&) = delete;
 
   template <typename T>
-  MessageBuilder& operator<<(T&& value) { text_ << value; return *this; }
+  MessageBuilder& operator<<(T&& value) {
+    text_ << value;
+    return *this;
+  }
+
  private:
   Context* const context_;
   const Message::Type type_;
@@ -46,6 +50,7 @@ class Scope {
   explicit Scope(Scope* parent = nullptr) : parent_(parent) {}
   bool Define(std::string name, Entry entry);
   const Entry* Lookup(std::string_view name) const;
+
  private:
   const Scope* parent_ = nullptr;
   std::map<std::string, Entry, std::less<>> bindings_;
@@ -70,25 +75,9 @@ std::vector<ast::Statement> Check(const std::vector<ast::Statement>&, Context*,
                                   Scope*);
 ast::Statement Check(const ast::Statement&, Context*, Scope*);
 
-class TopLevel : public ast::TopLevelVisitor {
- public:
-  TopLevel(Context* context, Scope* scope);
-  using TopLevelVisitor::Visit;
-  void Visit(const ast::DefineFunction& d) override { result_ = Check(d); }
-  void Visit(const std::vector<ast::DefineFunction>& d) override {
-    result_ = Check(d);
-  }
-  ast::DefineFunction Check(const ast::DefineFunction&) const;
-  std::vector<ast::DefineFunction> Check(
-      const std::vector<ast::DefineFunction>&) const;
-  ast::TopLevel result() { return std::move(result_.value()); }
- private:
-  Context* context_;
-  Scope* scope_;
-  std::optional<ast::TopLevel> result_;
-};
-
-ast::TopLevel Check(Context* context, Scope* scope,
-                    const ast::TopLevel& top_level);
+ast::DefineFunction Check(const ast::DefineFunction&, Context*, Scope*);
+std::vector<ast::DefineFunction> Check(const std::vector<ast::DefineFunction>&,
+                                       Context*, Scope*);
+ast::TopLevel Check(const ast::TopLevel&, Context*, Scope*);
 
 }  // namespace analysis

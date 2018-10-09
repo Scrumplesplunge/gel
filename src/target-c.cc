@@ -44,17 +44,9 @@ void CompileStatement(const std::vector<ast::Statement>&, std::ostream*,
                       int indent);
 void CompileStatement(const ast::Statement&, std::ostream*, int indent);
 
-class TopLevel : public ast::TopLevelVisitor {
- public:
-  TopLevel(std::ostream& output);
-
-  using TopLevelVisitor::Visit;
-  void Visit(const ast::DefineFunction&) override;
-  void Visit(const std::vector<ast::DefineFunction>&) override;
-
- private:
-  std::ostream& output_;
-};
+void CompileTopLevel(const ast::DefineFunction&, std::ostream*);
+void CompileTopLevel(const std::vector<ast::DefineFunction>&, std::ostream*);
+void CompileTopLevel(const ast::TopLevel&, std::ostream*);
 
 void PrintType(const ast::Type& type, std::ostream* output) {
   type.visit([&](const auto& node) {
@@ -165,33 +157,34 @@ void CompileExpression(const ast::Expression& expression,
 void CompileStatement(const ast::DefineVariable& definition,
                       std::ostream* output, int indent) {
   *output << util::Spaces{indent};
-  PrintType(definition.variable.type.value(), &*output);
+  PrintType(definition.variable.type.value(), output);
   *output << " ";
-  CompileExpression(definition.variable, &*output);
+  CompileExpression(definition.variable, output);
   *output << " = ";
-  CompileExpression(definition.value, &*output);
+  CompileExpression(definition.value, output);
   *output << ";\n";
 }
 
 void CompileStatement(const ast::Assign& assignment, std::ostream* output,
                       int indent) {
   *output << util::Spaces{indent};
-  CompileExpression(assignment.variable, &*output);
+  CompileExpression(assignment.variable, output);
   *output << " = ";
-  CompileExpression(assignment.value, &*output);
+  CompileExpression(assignment.value, output);
   *output << ";\n";
 }
 
-void CompileStatement(const ast::DoFunction& do_function, std::ostream* output, int indent) {
+void CompileStatement(const ast::DoFunction& do_function, std::ostream* output,
+                      int indent) {
   *output << util::Spaces{indent};
-  CompileExpression(do_function.function_call, &*output);
+  CompileExpression(do_function.function_call, output);
   *output << ";\n";
 }
 
 void CompileStatement(const ast::If& if_statement, std::ostream* output,
                       int indent) {
   *output << util::Spaces{indent} << "if (";
-  CompileExpression(if_statement.condition, &*output);
+  CompileExpression(if_statement.condition, output);
   *output << ") {\n";
   CompileStatement(if_statement.if_true, output, indent + 2);
   *output << util::Spaces{indent} << "} else {\n";
@@ -202,7 +195,7 @@ void CompileStatement(const ast::If& if_statement, std::ostream* output,
 void CompileStatement(const ast::While& while_statement, std::ostream* output,
                       int indent) {
   *output << util::Spaces{indent} << "while (";
-  CompileExpression(while_statement.condition, &*output);
+  CompileExpression(while_statement.condition, output);
   *output << ") {\n";
   CompileStatement(while_statement.body, output, indent + 2);
   *output << util::Spaces{indent} << "}\n";
@@ -231,49 +224,52 @@ void CompileStatement(const ast::Statement& statement, std::ostream* output,
   statement.visit([&](const auto& x) { CompileStatement(x, output, indent); });
 }
 
-TopLevel::TopLevel(std::ostream& output) : output_(output) {}
-
-void TopLevel::Visit(const ast::DefineFunction& definition) {
+void CompileTopLevel(const ast::DefineFunction& definition,
+                     std::ostream* output) {
   const ast::Function* type =
       definition.function.type.value().get_if<ast::Function>();
-  PrintType(type->return_type, &output_);
-  output_ << " ";
-  CompileExpression(definition.function, &output_);
-  output_ << "(";
+  PrintType(type->return_type, output);
+  *output << " ";
+  CompileExpression(definition.function, output);
+  *output << "(";
   bool first = true;
   for (const auto& parameter : definition.parameters) {
     if (first) {
       first = false;
     } else {
-      output_ << ", ";
+      *output << ", ";
     }
-    PrintType(parameter.type.value(), &output_);
-    output_ << " ";
-    CompileExpression(parameter, &output_);
+    PrintType(parameter.type.value(), output);
+    *output << " ";
+    CompileExpression(parameter, output);
   }
-  output_ << ") {\n";
-  CompileStatement(definition.body, &output_, 2);
-  output_ << "}\n";
+  *output << ") {\n";
+  CompileStatement(definition.body, output, 2);
+  *output << "}\n";
 }
 
-void TopLevel::Visit(const std::vector<ast::DefineFunction>& definitions) {
+void CompileTopLevel(const std::vector<ast::DefineFunction>& definitions,
+                     std::ostream* output) {
   bool first = true;
   for (const auto& definition : definitions) {
     if (first) {
       first = false;
     } else {
-      output_ << "\n";
+      *output << "\n";
     }
-    Visit(definition);
+    CompileTopLevel(definition, output);
   }
+}
+
+void CompileTopLevel(const ast::TopLevel& top_level, std::ostream* output) {
+  top_level.visit([&](const auto& x) { CompileTopLevel(x, output); });
 }
 
 }  // namespace
 
 void Compile(const ast::TopLevel& top_level, std::ostream* output) {
   *output << kHeader;
-  TopLevel codegen{*output};
-  top_level.Visit(codegen);
+  CompileTopLevel(top_level, output);
   *output << kFooter;
 }
 

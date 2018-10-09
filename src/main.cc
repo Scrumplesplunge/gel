@@ -29,8 +29,7 @@ int main() {
               ast::Void{},
               {ast::Identifier{{builtins.location(), ast::Primitive::INTEGER},
                                "number"}}}});
-  analysis::TopLevel checker{&context, &scope};
-  checker.Visit(program);
+  auto checked = analysis::Check(program, &context, &scope);
   if (!context.diagnostics.empty()) {
     for (const auto& message : context.diagnostics) {
       std::cerr << message;
@@ -44,8 +43,6 @@ int main() {
     // warnings or notes.
     if (count[Message::Type::ERROR] > 0) return 1;
   }
-
-  auto checked = checker.result();
   {
     std::ofstream output{".gel-output.c"};
     target::c::Compile(checked, &output);
