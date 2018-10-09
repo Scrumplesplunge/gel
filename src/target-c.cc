@@ -25,18 +25,6 @@ constexpr char kFooter[] = R"(
 int main() { return gel_main(); }
 )";
 
-class Type : public ast::TypeVisitor {
- public:
-  Type(std::ostream& output) : output_(output) {}
-
-  void Visit(const ast::Void&) override;
-  void Visit(const ast::Primitive&) override;
-  void Visit(const ast::Function&) override;
-
- private:
-  std::ostream& output_;
-};
-
 class Expression : public ast::ExpressionVisitor {
  public:
   Expression(std::ostream& output) : output_(output) {}
@@ -85,20 +73,26 @@ class TopLevel : public ast::TopLevelVisitor {
   std::ostream& output_;
 };
 
-void Type::Visit(const ast::Void&) {
-  output_ << "void";
-}
-
-void Type::Visit(const ast::Primitive& primitive) {
-  switch (primitive) {
-    case ast::Primitive::BOOLEAN: output_ << "bool"; break;
-    case ast::Primitive::INTEGER: output_ << "int_least64_t"; break;
-  }
-}
-
-void Type::Visit(const ast::Function&) {
-  throw std::logic_error(
-      "No function types should have to be visited when compiling.");
+void PrintType(const ast::Type& type, std::ostream* output) {
+  type.visit(
+      [&](const auto& node) {
+        using value_type = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<value_type, ast::Void>) {
+          *output << "void";
+        } else if constexpr (std::is_same_v<value_type, ast::Primitive>) {
+          switch (node) {
+            case ast::Primitive::BOOLEAN:
+              *output << "bool";
+              break;
+            case ast::Primitive::INTEGER:
+              *output << "int_least64_t";
+              break;
+          }
+        } else if constexpr (std::is_same_v<value_type, ast::Function>) {
+          throw std::logic_error(
+              "No function types should have to be visited when compiling.");
+        }
+      });
 }
 
 void Expression::Visit(const ast::Identifier& identifier) {
@@ -158,8 +152,7 @@ void Expression::Visit(const ast::LogicalNot& op) {
 
 void Statement::Visit(const ast::DefineVariable& definition) {
   output_ << util::Spaces{indent_};
-  Type type_codegen{output_};
-  definition.variable.type.value().Visit(type_codegen);
+  PrintType(definition.variable.type.value(), &output_);
   output_ << " ";
   Expression name_codegen{output_};
   name_codegen.Visit(definition.variable);
@@ -226,10 +219,9 @@ void Statement::Visit(const std::vector<ast::Statement>& statements) {
 TopLevel::TopLevel(std::ostream& output) : output_(output) {}
 
 void TopLevel::Visit(const ast::DefineFunction& definition) {
-  Type return_type_codegen{output_};
   const ast::Function* type =
-      ast::GetFunctionType(definition.function.type.value());
-  type->return_type.Visit(return_type_codegen);
+      definition.function.type.value().get_if<ast::Function>();
+  PrintType(type->return_type, &output_);
   output_ << " ";
   Expression name_codegen{output_};
   name_codegen.Visit(definition.function);
@@ -241,8 +233,7 @@ void TopLevel::Visit(const ast::DefineFunction& definition) {
     } else {
       output_ << ", ";
     }
-    Type type_codegen{output_};
-    parameter.type.value().Visit(type_codegen);
+    PrintType(parameter.type.value(), &output_);
     output_ << " ";
     Expression name_codegen{output_};
     name_codegen.Visit(parameter);

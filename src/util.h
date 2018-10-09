@@ -47,4 +47,13 @@ std::ostream& operator<<(std::ostream& output, Format<T> f) {
   return output << f.style << f.value << Style::CLEAR;
 }
 
+template <typename T, typename... Options>
+struct is_one_of {
+  static constexpr bool value =
+      (std::is_same_v<std::decay_t<T>, Options> || ...);
+};
+
+template <typename T, typename... Options>
+constexpr bool is_one_of_v = is_one_of<T, Options...>::value;
+
 }  // namespace util

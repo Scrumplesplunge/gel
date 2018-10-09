@@ -10,10 +10,12 @@ all: $(patsubst %, bin/%, ${BINARIES})
 GEL_DEPS =  \
 	analysis  \
 	ast  \
+	one_of  \
 	parser  \
 	reader  \
 	target-c  \
 	util  \
+	value  \
 	visitable  \
 	main
 bin/gel: $(patsubst %, obj/%.o, ${GEL_DEPS})

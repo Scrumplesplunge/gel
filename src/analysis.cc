@@ -77,7 +77,7 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::MULTIPLY:
     case ast::Binary::SUBTRACT: {
       bool left_acceptable =
-          !left_type.has_value() || IsArithmeticType(*left_type);
+          !left_type.has_value() || *left_type == ast::Primitive::INTEGER;
       // Both arguments should be integers.
       if (!left_acceptable) {
         context_->Error(binary.location)
@@ -85,7 +85,7 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
             << util::Detail(*left_type) << ", which is not an arithmetic type.";
       }
       bool right_acceptable =
-          !right_type.has_value() || IsArithmeticType(*right_type);
+          !right_type.has_value() || *right_type == ast::Primitive::INTEGER;
       if (!right_acceptable) {
         context_->Error(binary.location)
             << "Left argument of arithmetic operator has type "
@@ -112,12 +112,12 @@ ast::Binary Expression::Check(const ast::Binary& binary) const {
     case ast::Binary::LOGICAL_AND:
     case ast::Binary::LOGICAL_OR: {
       // Both arguments should be booleans.
-      if (left_type.has_value() && !(left_type == ast::Primitive::BOOLEAN)) {
+      if (left_type.has_value() && !(*left_type == ast::Primitive::BOOLEAN)) {
         context_->Error(binary.location)
             << "Left argument to logical operation has type "
             << util::Detail(*left_type) << ", which is not a boolean type.";
       }
-      if (right_type.has_value() && !(right_type == ast::Primitive::BOOLEAN)) {
+      if (right_type.has_value() && !(*right_type == ast::Primitive::BOOLEAN)) {
         context_->Error(binary.location)
             << "Right argument to logical operation has type "
             << util::Detail(*left_type) << ", which is not a boolean type.";
@@ -163,7 +163,7 @@ ast::FunctionCall Expression::Check(const ast::FunctionCall& call) const {
   }
 
   const ast::Function* type =
-      entry->type.has_value() ? GetFunctionType(*entry->type) : nullptr;
+      entry->type.has_value() ? entry->type->get_if<ast::Function>() : nullptr;
   if (type == nullptr) {
     context_->Error(call.function.location)
         << util::Detail(call.function.name) << " is not of function type.";
@@ -249,7 +249,7 @@ ast::DefineVariable Statement::Check(
   visitor.Visit(definition.value);
   auto value_copy = visitor.result();
   auto value_type = GetMeta(value_copy).type;
-  if (value_type.has_value() && !IsValueType(*value_type)) {
+  if (value_type.has_value() && !value_type->is<ast::Primitive>()) {
     context_->Error(definition.location)
         << "Assignment expression in definition yields type "
         << util::Detail(*value_type)

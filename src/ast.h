@@ -1,17 +1,22 @@
 #pragma once
 
+#include "one_of.h"
 #include "reader.h"
+#include "value.h"
 #include "visitable.h"
 
 #include <memory>
 #include <optional>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace ast {
 
-struct TypeVisitor;
-using Type = visitable::Node<TypeVisitor>;
+struct Void;
+enum class Primitive;
+struct Function;
+using Type = one_of<Void, Primitive, Function>;
 
 struct Void {};
 
@@ -26,19 +31,8 @@ struct Function {
   std::vector<Identifier> parameters;
 };
 
-struct TypeVisitor {
-  void Visit(const Type& type) { type.Visit(*this); }
-  virtual void Visit(const Void&) = 0;
-  virtual void Visit(const Primitive&) = 0;
-  virtual void Visit(const Function&) = 0;
-};
-
 inline bool operator==(Void, Void) { return true; }
 bool operator==(const Function& left, const Function& right);
-bool operator==(const Type& left, const Type& right);
-bool IsArithmeticType(const Type& type);
-bool IsValueType(const Type& type);
-const Function* GetFunctionType(const Type& type);
 std::ostream& operator<<(std::ostream& output, const Type& type);
 
 struct ExpressionVisitor;
