@@ -31,7 +31,7 @@ ast::Integer Parser::ParseInteger() {
   auto end = std::end(*reader_);
   auto i = std::find_if_not(begin, end,
                             [](unsigned char c) { return std::isdigit(c); });
-  auto length = i - begin;
+  auto length = static_cast<std::string_view::size_type>(i - begin);
   std::string_view integer_part = reader_->prefix(length);
   std::int64_t value = 0;
   for (char c : integer_part) {
@@ -80,7 +80,6 @@ ast::Expression Parser::ParseTerm() {
     // Variables or function calls.
     auto identifier = ParseIdentifier();
     if (!reader_->empty() && reader_->front() == '(') {
-      auto location = reader_->location();
       auto arguments = ParseArgumentList();
       return ast::FunctionCall{
           {location}, std::move(identifier), std::move(arguments)};
@@ -253,7 +252,7 @@ ast::DoFunction Parser::ParseDoFunction() {
           {call_location}, std::move(function), std::move(arguments)}};
 }
 
-ast::If Parser::ParseIfStatement(int indent) {
+ast::If Parser::ParseIfStatement(std::size_t indent) {
   auto location = reader_->location();
   CheckConsume("if (");
   auto condition = ParseExpression();
@@ -275,7 +274,7 @@ ast::If Parser::ParseIfStatement(int indent) {
   }
 }
 
-ast::While Parser::ParseWhileStatement(int indent) {
+ast::While Parser::ParseWhileStatement(std::size_t indent) {
   auto location = reader_->location();
   CheckConsume("while (");
   auto condition = ParseExpression();
@@ -284,7 +283,7 @@ ast::While Parser::ParseWhileStatement(int indent) {
   return ast::While{{location}, std::move(condition), std::move(statements)};
 }
 
-ast::Statement Parser::ParseStatement(int indent) {
+ast::Statement Parser::ParseStatement(std::size_t indent) {
   ParseComment(indent);
   if (reader_->starts_with("let ")) {
     return ParseVariableDefinition();
@@ -306,7 +305,7 @@ ast::Statement Parser::ParseStatement(int indent) {
   }
 }
 
-std::vector<ast::Statement> Parser::ParseStatementBlock(int indent) {
+std::vector<ast::Statement> Parser::ParseStatementBlock(std::size_t indent) {
   CheckConsume("{");
   CheckNotEnd();
   // Empty statement blocks are just "{}", ie. without a newline.
@@ -359,10 +358,10 @@ std::vector<ast::DefineFunction> Parser::ParseProgram() {
   return definitions;
 }
 
-void Parser::ParseComment(int indent) {
+void Parser::ParseComment(std::size_t indent) {
   while (reader_->Consume("#")) {
     auto i = std::find(std::begin(*reader_), std::end(*reader_), '\n');
-    reader_->remove_prefix(i - std::begin(*reader_));
+    reader_->remove_prefix(static_cast<std::size_t>(i - std::begin(*reader_)));
     ConsumeNewline();
     ConsumeIndent(indent);
   }
@@ -385,11 +384,11 @@ void Parser::ConsumeNewline() {
     throw CompileError{reader_->location(), "Expected '\\n'."};
 }
 
-void Parser::ConsumeIndent(int indent) {
+void Parser::ConsumeIndent(std::size_t indent) {
   auto has_indent = [&] {
     std::string_view prefix = reader_->prefix(indent);
-    if (static_cast<int>(prefix.length()) < indent) return false;
-    for (int i = 0; i < indent; i++) {
+    if (prefix.length() < indent) return false;
+    for (std::size_t i = 0; i < indent; i++) {
       if (prefix[i] != ' ') return false;
     }
     return true;
@@ -414,5 +413,5 @@ std::string_view Parser::IdentifierPrefix() const {
   auto end = std::end(*reader_);
   auto i = std::find_if_not(begin, end,
                             [](unsigned char c) { return std::isalnum(c); });
-  return reader_->prefix(i - begin);
+  return reader_->prefix(static_cast<std::size_t>(i - begin));
 }

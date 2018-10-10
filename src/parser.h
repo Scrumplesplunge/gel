@@ -25,21 +25,21 @@ class Parser {
   ast::DefineVariable ParseVariableDefinition();
   ast::Assign ParseAssignment();
   ast::DoFunction ParseDoFunction();
-  ast::If ParseIfStatement(int indent);
-  ast::While ParseWhileStatement(int indent);
-  ast::Statement ParseStatement(int indent);
-  std::vector<ast::Statement> ParseStatementBlock(int indent);
+  ast::If ParseIfStatement(std::size_t indent);
+  ast::While ParseWhileStatement(std::size_t indent);
+  ast::Statement ParseStatement(std::size_t indent);
+  std::vector<ast::Statement> ParseStatementBlock(std::size_t indent);
 
   std::vector<ast::Identifier> ParseParameterList();
   ast::DefineFunction ParseFunctionDefinition();
   std::vector<ast::DefineFunction> ParseProgram();
 
-  void ParseComment(int indent);
+  void ParseComment(std::size_t indent);
 
   void CheckEnd();
   void CheckConsume(std::string_view expected);
   void ConsumeNewline();
-  void ConsumeIndent(int indent);
+  void ConsumeIndent(std::size_t indent);
   void CheckNotEnd();
 
  private:

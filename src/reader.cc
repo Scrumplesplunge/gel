@@ -18,7 +18,8 @@ std::string_view Reader::Location::line_contents() const {
   const char* position = i + offset_;
   const char* line_start = position - (column_ - 1);
   const char* line_end = std::find(position, j, '\n');
-  return std::string_view(line_start, line_end - line_start);
+  auto length = static_cast<std::string_view::size_type>(line_end - line_start);
+  return std::string_view(line_start, length);
 }
 
 Reader::Location Reader::location() const {
@@ -80,8 +81,10 @@ std::ostream& operator<<(std::ostream& output, const Message& message) {
                 << message.text << "\n\n"
                 << std::string(kSourceIndent, ' ')
                 << message.location.line_contents() << "\n"
-                << std::string(kSourceIndent + message.location.column() - 1,
-                               ' ')
+                << std::string(
+                       static_cast<std::string::size_type>(
+                           kSourceIndent + message.location.column() - 1),
+                       ' ')
                 << "^\n";
 }
 
@@ -103,3 +106,5 @@ CompileError::CompileError(Reader::Location location, std::string_view text)
   output << message_;
   formatted_ = output.str();
 }
+
+const char* CompileError::what() const noexcept { return formatted_.c_str(); }

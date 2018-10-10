@@ -30,7 +30,9 @@ class Reader {
 
   bool empty() const { return remaining().empty(); }
   char front() const { return remaining().front(); }
-  auto begin() const { return source_.begin() + offset_; }
+  auto begin() const {
+    return source_.begin() + static_cast<std::ptrdiff_t>(offset_);
+  }
   auto end() const { return source_.end(); }
 
   bool starts_with(std::string_view prefix) const;
@@ -71,7 +73,7 @@ class CompileError : public std::exception {
   const Message& message() const { return message_; }
   Reader::Location location() const { return message_.location; }
   const std::string& text() const { return message_.text; }
-  const char* what() const noexcept override { return formatted_.c_str(); }
+  const char* what() const noexcept override;
  private:
   Message message_;
   std::string formatted_;
