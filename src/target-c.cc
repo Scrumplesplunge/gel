@@ -28,7 +28,9 @@ int main() { return gel_main(); }
 void CompileExpression(const ast::Identifier&, std::ostream*);
 void CompileExpression(const ast::Boolean&, std::ostream*);
 void CompileExpression(const ast::Integer&, std::ostream*);
-void CompileExpression(const ast::Binary&, std::ostream*);
+void CompileExpression(const ast::Arithmetic&, std::ostream*);
+void CompileExpression(const ast::Compare&, std::ostream*);
+void CompileExpression(const ast::Logical&, std::ostream*);
 void CompileExpression(const ast::FunctionCall&, std::ostream*);
 void CompileExpression(const ast::LogicalNot&, std::ostream*);
 void CompileExpression(const ast::Expression&, std::ostream*);
@@ -82,46 +84,68 @@ void CompileExpression(const ast::Integer& integer, std::ostream* output) {
   *output << integer.value;
 }
 
-void CompileExpression(const ast::Binary& binary, std::ostream* output) {
+void CompileExpression(const ast::Arithmetic& binary, std::ostream* output) {
   *output << "(";
   CompileExpression(binary.left, output);
   *output << " ";
   switch (binary.operation) {
-    case ast::Binary::ADD:
+    case ast::Arithmetic::ADD:
       *output << "+";
       break;
-    case ast::Binary::COMPARE_EQ:
-      *output << "==";
-      break;
-    case ast::Binary::COMPARE_GE:
-      *output << ">=";
-      break;
-    case ast::Binary::COMPARE_GT:
-      *output << ">";
-      break;
-    case ast::Binary::COMPARE_LE:
-      *output << "<=";
-      break;
-    case ast::Binary::COMPARE_LT:
-      *output << "<";
-      break;
-    case ast::Binary::COMPARE_NE:
-      *output << "!=";
-      break;
-    case ast::Binary::DIVIDE:
+    case ast::Arithmetic::DIVIDE:
       *output << "/";
       break;
-    case ast::Binary::LOGICAL_AND:
-      *output << "&&";
-      break;
-    case ast::Binary::LOGICAL_OR:
-      *output << "||";
-      break;
-    case ast::Binary::MULTIPLY:
+    case ast::Arithmetic::MULTIPLY:
       *output << "*";
       break;
-    case ast::Binary::SUBTRACT:
+    case ast::Arithmetic::SUBTRACT:
       *output << "-";
+      break;
+  }
+  *output << " ";
+  CompileExpression(binary.right, output);
+  *output << ")";
+}
+
+void CompileExpression(const ast::Compare& binary, std::ostream* output) {
+  *output << "(";
+  CompileExpression(binary.left, output);
+  *output << " ";
+  switch (binary.operation) {
+    case ast::Compare::EQUAL:
+      *output << "==";
+      break;
+    case ast::Compare::GREATER_OR_EQUAL:
+      *output << ">=";
+      break;
+    case ast::Compare::GREATER_THAN:
+      *output << ">";
+      break;
+    case ast::Compare::LESS_OR_EQUAL:
+      *output << "<=";
+      break;
+    case ast::Compare::LESS_THAN:
+      *output << "<";
+      break;
+    case ast::Compare::NOT_EQUAL:
+      *output << "!=";
+      break;
+  }
+  *output << " ";
+  CompileExpression(binary.right, output);
+  *output << ")";
+}
+
+void CompileExpression(const ast::Logical& binary, std::ostream* output) {
+  *output << "(";
+  CompileExpression(binary.left, output);
+  *output << " ";
+  switch (binary.operation) {
+    case ast::Logical::AND:
+      *output << "&&";
+      break;
+    case ast::Logical::OR:
+      *output << "||";
       break;
   }
   *output << " ";

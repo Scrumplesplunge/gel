@@ -117,14 +117,14 @@ ast::Expression Parser::ParseProduct() {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Binary{
-          {location}, ast::Binary::MULTIPLY, std::move(left), ParseTerm()};
+      left = ast::Arithmetic{
+          {location}, ast::Arithmetic::MULTIPLY, std::move(left), ParseTerm()};
     } else if (reader_->starts_with(" / ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Binary{
-          {location}, ast::Binary::DIVIDE, std::move(left), ParseTerm()};
+      left = ast::Arithmetic{
+          {location}, ast::Arithmetic::DIVIDE, std::move(left), ParseTerm()};
     } else {
       return left;
     }
@@ -138,13 +138,16 @@ ast::Expression Parser::ParseSum() {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Binary{{location}, ast::Binary::ADD, left, ParseProduct()};
+      left = ast::Arithmetic{
+          {location}, ast::Arithmetic::ADD, left, ParseProduct()};
     } else if (reader_->starts_with(" - ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Binary{
-          {location}, ast::Binary::SUBTRACT, std::move(left), ParseProduct()};
+      left = ast::Arithmetic{{location},
+                             ast::Arithmetic::SUBTRACT,
+                             std::move(left),
+                             ParseProduct()};
     } else {
       return left;
     }
@@ -157,38 +160,40 @@ ast::Expression Parser::ParseComparison() {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_EQ, std::move(left), ParseSum()};
+    return ast::Compare{
+        {location}, ast::Compare::EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" != ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_NE, std::move(left), ParseSum()};
+    return ast::Compare{
+        {location}, ast::Compare::NOT_EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" <= ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_LE, std::move(left), ParseSum()};
+    return ast::Compare{
+        {location}, ast::Compare::LESS_OR_EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" < ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(2);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_LT, std::move(left), ParseSum()};
+    return ast::Compare{
+        {location}, ast::Compare::LESS_THAN, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" >= ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_GE, std::move(left), ParseSum()};
+    return ast::Compare{{location},
+                        ast::Compare::GREATER_OR_EQUAL,
+                        std::move(left),
+                        ParseSum()};
   } else if (reader_->starts_with(" > ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(2);
-    return ast::Binary{
-        {location}, ast::Binary::COMPARE_GT, std::move(left), ParseSum()};
+    return ast::Compare{
+        {location}, ast::Compare::GREATER_THAN, std::move(left), ParseSum()};
   } else {
     return left;
   }
@@ -201,10 +206,8 @@ ast::Expression Parser::ParseConjunction() {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(3);
-      left = ast::Binary{{location},
-                         ast::Binary::LOGICAL_AND,
-                         std::move(left),
-                         ParseComparison()};
+      left = ast::Logical{
+          {location}, ast::Logical::AND, std::move(left), ParseComparison()};
     } else {
       return left;
     }
@@ -218,10 +221,8 @@ ast::Expression Parser::ParseDisjunction() {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(3);
-      left = ast::Binary{{location},
-                         ast::Binary::LOGICAL_OR,
-                         std::move(left),
-                         ParseConjunction()};
+      left = ast::Logical{
+          {location}, ast::Logical::OR, std::move(left), ParseConjunction()};
     } else {
       return left;
     }

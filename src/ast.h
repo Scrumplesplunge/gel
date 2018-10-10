@@ -41,11 +41,13 @@ std::ostream& operator<<(std::ostream& output, const Type& type);
 struct Identifier;
 struct Boolean;
 struct Integer;
-struct Binary;
+struct Arithmetic;
+struct Compare;
+struct Logical;
 struct FunctionCall;
 struct LogicalNot;
-using Expression =
-    one_of<Identifier, Boolean, Integer, Binary, FunctionCall, LogicalNot>;
+using Expression = one_of<Identifier, Boolean, Integer, Arithmetic, Compare,
+                          Logical, FunctionCall, LogicalNot>;
 
 struct AnyExpression {
   Reader::Location location;
@@ -64,20 +66,34 @@ struct Integer : AnyExpression {
   std::int64_t value;
 };
 
-struct Binary : AnyExpression {
+struct Arithmetic : AnyExpression {
   enum Operation {
     ADD,
-    COMPARE_EQ,
-    COMPARE_GE,
-    COMPARE_GT,
-    COMPARE_LE,
-    COMPARE_LT,
-    COMPARE_NE,
     DIVIDE,
-    LOGICAL_AND,
-    LOGICAL_OR,
     MULTIPLY,
     SUBTRACT,
+  };
+  Operation operation;
+  Expression left, right;
+};
+
+struct Compare : AnyExpression {
+  enum Comparison {
+    EQUAL,
+    GREATER_OR_EQUAL,
+    GREATER_THAN,
+    LESS_OR_EQUAL,
+    LESS_THAN,
+    NOT_EQUAL,
+  };
+  Comparison operation;
+  Expression left, right;
+};
+
+struct Logical : AnyExpression {
+  enum Operation {
+    AND,
+    OR,
   };
   Operation operation;
   Expression left, right;

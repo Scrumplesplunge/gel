@@ -61,97 +61,95 @@ ast::Integer Check(const ast::Integer& integer, FunctionContext*,
   return copy;
 }
 
-ast::Binary Check(const ast::Binary& binary, FunctionContext* context,
-                  const Scope* scope) {
+ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
+                      const Scope* scope) {
   auto left = Check(binary.left, context, scope);
   auto left_type = GetMeta(left).type;
   auto right = Check(binary.right, context, scope);
   auto right_type = GetMeta(right).type;
 
-  switch (binary.operation) {
-    case ast::Binary::ADD:
-    case ast::Binary::DIVIDE:
-    case ast::Binary::MULTIPLY:
-    case ast::Binary::SUBTRACT: {
-      bool left_acceptable =
-          !left_type.has_value() || *left_type == ast::Primitive::INTEGER;
-      // Both arguments should be integers.
-      if (!left_acceptable) {
-        context->global_context->Error(binary.location)
-            << "Left argument of arithmetic operator has type "
-            << util::Detail(*left_type) << ", which is not an arithmetic type.";
-      }
-      bool right_acceptable =
-          !right_type.has_value() || *right_type == ast::Primitive::INTEGER;
-      if (!right_acceptable) {
-        context->global_context->Error(binary.location)
-            << "Left argument of arithmetic operator has type "
-            << util::Detail(*right_type)
-            << ", which is not an arithmetic type.";
-      }
-      if (!left_acceptable || !right_acceptable) return binary;
-      if (left_type.has_value() && right_type.has_value() &&
-          !(*left_type == *right_type)) {
-        context->global_context->Error(binary.location)
-            << "Mismatched arguments to arithmetic operator. "
-            << "Left argument has type " << util::Detail(*left_type)
-            << ", but right argument has type " << util::Detail(*right_type)
-            << ".";
-        return binary;
-      }
-      auto copy = binary;
-      copy.type = left_type.has_value()
-                      ? left_type.value()
-                      : right_type.has_value() ? right_type.value()
-                                               : ast::Primitive::INTEGER;
-      return copy;
-    }
-    case ast::Binary::LOGICAL_AND:
-    case ast::Binary::LOGICAL_OR: {
-      // Both arguments should be booleans.
-      if (left_type.has_value() && !(*left_type == ast::Primitive::BOOLEAN)) {
-        context->global_context->Error(binary.location)
-            << "Left argument to logical operation has type "
-            << util::Detail(*left_type) << ", which is not a boolean type.";
-      }
-      if (right_type.has_value() && !(*right_type == ast::Primitive::BOOLEAN)) {
-        context->global_context->Error(binary.location)
-            << "Right argument to logical operation has type "
-            << util::Detail(*left_type) << ", which is not a boolean type.";
-      }
-      auto copy = binary;
-      copy.type = ast::Primitive::BOOLEAN;
-      return copy;
-    }
-    case ast::Binary::COMPARE_EQ:
-    case ast::Binary::COMPARE_GE:
-    case ast::Binary::COMPARE_GT:
-    case ast::Binary::COMPARE_LE:
-    case ast::Binary::COMPARE_LT:
-    case ast::Binary::COMPARE_NE: {
-      if (left_type == ast::Void{}) {
-        context->global_context->Error(GetMeta(binary.left).location)
-            << "Left argument to comparison operator has type "
-            << util::Detail(ast::Void{}) << ".";
-      }
-      if (right_type == ast::Void{}) {
-        context->global_context->Error(GetMeta(binary.right).location)
-            << "Right argument to comparison operator has type "
-            << util::Detail(ast::Void{}) << ".";
-      }
-      if (left_type.has_value() && right_type.has_value() &&
-          left_type != right_type) {
-        context->global_context->Error(binary.location)
-            << "Mismatched arguments to comparison operator. "
-            << "Left argument has type " << util::Detail(*left_type)
-            << ", but right argument has type " << util::Detail(*right_type)
-            << ".";
-      }
-      auto copy = binary;
-      copy.type = ast::Primitive::BOOLEAN;
-      return copy;
-    }
+  bool left_acceptable =
+      !left_type.has_value() || *left_type == ast::Primitive::INTEGER;
+  // Both arguments should be integers.
+  if (!left_acceptable) {
+    context->global_context->Error(binary.location)
+        << "Left argument of arithmetic operator has type "
+        << util::Detail(*left_type) << ", which is not an arithmetic type.";
   }
+  bool right_acceptable =
+      !right_type.has_value() || *right_type == ast::Primitive::INTEGER;
+  if (!right_acceptable) {
+    context->global_context->Error(binary.location)
+        << "Left argument of arithmetic operator has type "
+        << util::Detail(*right_type) << ", which is not an arithmetic type.";
+  }
+  if (!left_acceptable || !right_acceptable) return binary;
+  if (left_type.has_value() && right_type.has_value() &&
+      !(*left_type == *right_type)) {
+    context->global_context->Error(binary.location)
+        << "Mismatched arguments to arithmetic operator. "
+        << "Left argument has type " << util::Detail(*left_type)
+        << ", but right argument has type " << util::Detail(*right_type) << ".";
+    return binary;
+  }
+  auto copy = binary;
+  copy.type = left_type.has_value()
+                  ? left_type.value()
+                  : right_type.has_value() ? right_type.value()
+                                           : ast::Primitive::INTEGER;
+  return copy;
+}
+
+ast::Compare Check(const ast::Compare& binary, FunctionContext* context,
+                   const Scope* scope) {
+  auto left = Check(binary.left, context, scope);
+  auto left_type = GetMeta(left).type;
+  auto right = Check(binary.right, context, scope);
+  auto right_type = GetMeta(right).type;
+
+  if (left_type == ast::Void{}) {
+    context->global_context->Error(GetMeta(binary.left).location)
+        << "Left argument to comparison operator has type "
+        << util::Detail(ast::Void{}) << ".";
+  }
+  if (right_type == ast::Void{}) {
+    context->global_context->Error(GetMeta(binary.right).location)
+        << "Right argument to comparison operator has type "
+        << util::Detail(ast::Void{}) << ".";
+  }
+  if (left_type.has_value() && right_type.has_value() &&
+      left_type != right_type) {
+    context->global_context->Error(binary.location)
+        << "Mismatched arguments to comparison operator. "
+        << "Left argument has type " << util::Detail(*left_type)
+        << ", but right argument has type " << util::Detail(*right_type) << ".";
+  }
+  auto copy = binary;
+  copy.type = ast::Primitive::BOOLEAN;
+  return copy;
+}
+
+ast::Logical Check(const ast::Logical& binary, FunctionContext* context,
+                   const Scope* scope) {
+  auto left = Check(binary.left, context, scope);
+  auto left_type = GetMeta(left).type;
+  auto right = Check(binary.right, context, scope);
+  auto right_type = GetMeta(right).type;
+
+  // Both arguments should be booleans.
+  if (left_type.has_value() && !(*left_type == ast::Primitive::BOOLEAN)) {
+    context->global_context->Error(binary.location)
+        << "Left argument to logical operation has type "
+        << util::Detail(*left_type) << ", which is not a boolean type.";
+  }
+  if (right_type.has_value() && !(*right_type == ast::Primitive::BOOLEAN)) {
+    context->global_context->Error(binary.location)
+        << "Right argument to logical operation has type "
+        << util::Detail(*left_type) << ", which is not a boolean type.";
+  }
+  auto copy = binary;
+  copy.type = ast::Primitive::BOOLEAN;
+  return copy;
 }
 
 ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
