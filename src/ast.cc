@@ -13,6 +13,15 @@ bool operator==(const Function& left, const Function& right) {
   return true;
 }
 
+bool operator<(const Function& left, const Function& right) {
+  if (left.return_type < right.return_type) return true;
+  if (left.return_type != right.return_type) return false;
+  return std::lexicographical_compare(
+      left.parameters.begin(), left.parameters.end(),
+      right.parameters.begin(), right.parameters.end(),
+      [](const auto& l, const auto& r) { return l.type < r.type; });
+}
+
 std::ostream& operator<<(std::ostream& output, const Type& type) {
   type.visit([&](const auto& node) {
     using value_type = std::decay_t<decltype(node)>;

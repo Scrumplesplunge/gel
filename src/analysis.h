@@ -5,6 +5,7 @@
 
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -34,7 +35,15 @@ class MessageBuilder {
   std::ostringstream text_;
 };
 
+struct Operators {
+  using ArithmeticKey = std::tuple<ast::Arithmetic::Operation, ast::Type>;
+  std::set<ArithmeticKey> arithmetic;
+  std::set<ast::Type> equality_comparable;
+  std::set<ast::Type> ordered;
+};
+
 struct GlobalContext {
+  const Operators operators;
   std::vector<Message> diagnostics;
   MessageBuilder Error(Reader::Location location);
   MessageBuilder Warning(Reader::Location location);
@@ -54,6 +63,7 @@ class Scope {
     std::optional<ast::Type> type;
   };
   explicit Scope(Scope* parent = nullptr) : parent_(parent) {}
+
   bool Define(std::string name, Entry entry);
   const Entry* Lookup(std::string_view name) const;
 

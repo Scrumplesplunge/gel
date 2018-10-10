@@ -1,5 +1,7 @@
 # Compute the nth term of the Fibonnacci sequence.
 function fib(n : integer) : integer {
+  let f0 = 0 == true
+  let f1 = fib == fib
   let i = 1
   # Redeclared variable.
   let i = 2

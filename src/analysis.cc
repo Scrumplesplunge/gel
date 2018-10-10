@@ -63,69 +63,84 @@ ast::Integer Check(const ast::Integer& integer, FunctionContext*,
 
 ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
                       const Scope* scope) {
-  auto left = Check(binary.left, context, scope);
-  auto left_type = GetMeta(left).type;
-  auto right = Check(binary.right, context, scope);
-  auto right_type = GetMeta(right).type;
+  auto copy = binary;
+  copy.left = Check(binary.left, context, scope);
+  auto left_type = GetMeta(copy.left).type;
+  copy.right = Check(binary.right, context, scope);
+  auto right_type = GetMeta(copy.right).type;
 
-  bool left_acceptable =
-      !left_type.has_value() || *left_type == ast::Primitive::INTEGER;
-  // Both arguments should be integers.
-  if (!left_acceptable) {
-    context->global_context->Error(binary.location)
-        << "Left argument of arithmetic operator has type "
-        << util::Detail(*left_type) << ", which is not an arithmetic type.";
+  if (!left_type.has_value() && !right_type.has_value()) {
+    // It's not possible to infer the result type without an argument type.
+    return copy;
   }
-  bool right_acceptable =
-      !right_type.has_value() || *right_type == ast::Primitive::INTEGER;
-  if (!right_acceptable) {
-    context->global_context->Error(binary.location)
-        << "Left argument of arithmetic operator has type "
-        << util::Detail(*right_type) << ", which is not an arithmetic type.";
-  }
-  if (!left_acceptable || !right_acceptable) return binary;
+
   if (left_type.has_value() && right_type.has_value() &&
-      !(*left_type == *right_type)) {
+      *left_type != *right_type) {
     context->global_context->Error(binary.location)
         << "Mismatched arguments to arithmetic operator. "
         << "Left argument has type " << util::Detail(*left_type)
         << ", but right argument has type " << util::Detail(*right_type) << ".";
-    return binary;
+    return copy;
   }
-  auto copy = binary;
-  copy.type = left_type.has_value()
-                  ? left_type.value()
-                  : right_type.has_value() ? right_type.value()
-                                           : ast::Primitive::INTEGER;
+
+  // At this point we know that at least one of the arguments has a type.
+  auto inferred_type = left_type.has_value() ? *left_type : *right_type;
+  copy.type = inferred_type;
+
+  const auto& operators = context->global_context->operators.arithmetic;
+  auto i = operators.find({binary.operation, inferred_type});
+  if (i == operators.end()) {
+    context->global_context->Error(copy.location)
+        << "Cannot use this operator with " << util::Detail(inferred_type)
+        << ".";
+  }
+
   return copy;
 }
 
 ast::Compare Check(const ast::Compare& binary, FunctionContext* context,
                    const Scope* scope) {
-  auto left = Check(binary.left, context, scope);
-  auto left_type = GetMeta(left).type;
-  auto right = Check(binary.right, context, scope);
-  auto right_type = GetMeta(right).type;
+  auto copy = binary;
+  copy.type = ast::Primitive::BOOLEAN;
+  copy.left = Check(binary.left, context, scope);
+  auto left_type = GetMeta(copy.left).type;
+  copy.right = Check(binary.right, context, scope);
+  auto right_type = GetMeta(copy.right).type;
 
-  if (left_type == ast::Void{}) {
-    context->global_context->Error(GetMeta(binary.left).location)
-        << "Left argument to comparison operator has type "
-        << util::Detail(ast::Void{}) << ".";
+  if (!left_type.has_value() && !right_type.has_value()) {
+    // It's not possible to infer the result type without an argument type.
+    return copy;
   }
-  if (right_type == ast::Void{}) {
-    context->global_context->Error(GetMeta(binary.right).location)
-        << "Right argument to comparison operator has type "
-        << util::Detail(ast::Void{}) << ".";
-  }
+
   if (left_type.has_value() && right_type.has_value() &&
-      left_type != right_type) {
+      *left_type != *right_type) {
     context->global_context->Error(binary.location)
         << "Mismatched arguments to comparison operator. "
         << "Left argument has type " << util::Detail(*left_type)
         << ", but right argument has type " << util::Detail(*right_type) << ".";
+    return copy;
   }
-  auto copy = binary;
-  copy.type = ast::Primitive::BOOLEAN;
+
+  // At this point we know that at least one of the arguments has a type.
+  auto inferred_type = left_type.has_value() ? *left_type : *right_type;
+
+  if (binary.operation == ast::Compare::EQUAL ||
+      binary.operation == ast::Compare::NOT_EQUAL) {
+    const auto& types = context->global_context->operators.equality_comparable;
+    auto i = types.find(inferred_type);
+    if (i == types.end()) {
+      context->global_context->Error(copy.location)
+          << util::Detail(inferred_type) << " is not equality comparable.";
+    }
+  } else {
+    const auto& types = context->global_context->operators.ordered;
+    auto i = types.find(inferred_type);
+    if (i == types.end()) {
+      context->global_context->Error(copy.location)
+          << util::Detail(inferred_type) << " is not an ordered type.";
+    }
+  }
+
   return copy;
 }
 

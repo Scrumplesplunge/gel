@@ -32,9 +32,23 @@ struct Function {
 
 inline bool operator==(Void, Void) { return true; }
 inline bool operator!=(Void, Void) { return false; }
+inline bool operator>(Void, Void) { return false; }
+inline bool operator>=(Void, Void) { return true; }
+inline bool operator<(Void, Void) { return false; }
+inline bool operator<=(Void, Void) { return true; }
 bool operator==(const Function& left, const Function& right);
 inline bool operator!=(const Function& left, const Function& right) {
   return !(left == right);
+}
+bool operator<(const Function& left, const Function& right);
+inline bool operator<=(const Function& left, const Function& right) {
+  return !(right < left);
+}
+inline bool operator>=(const Function& left, const Function& right) {
+  return !(left < right);
+}
+inline bool operator>(const Function& left, const Function& right) {
+  return right < left;
 }
 std::ostream& operator<<(std::ostream& output, const Type& type);
 
@@ -78,7 +92,7 @@ struct Arithmetic : AnyExpression {
 };
 
 struct Compare : AnyExpression {
-  enum Comparison {
+  enum Operation {
     EQUAL,
     GREATER_OR_EQUAL,
     GREATER_THAN,
@@ -86,7 +100,7 @@ struct Compare : AnyExpression {
     LESS_THAN,
     NOT_EQUAL,
   };
-  Comparison operation;
+  Operation operation;
   Expression left, right;
 };
 

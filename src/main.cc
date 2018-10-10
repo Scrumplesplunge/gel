@@ -18,7 +18,17 @@ int main() {
   parser.CheckEnd();
 
   // Perform semantics checks.
-  analysis::GlobalContext context;
+  analysis::Operators operators = {
+    {
+      {ast::Arithmetic::ADD, ast::Primitive::INTEGER},
+      {ast::Arithmetic::DIVIDE, ast::Primitive::INTEGER},
+      {ast::Arithmetic::MULTIPLY, ast::Primitive::INTEGER},
+      {ast::Arithmetic::SUBTRACT, ast::Primitive::INTEGER},
+    },
+    {ast::Primitive::BOOLEAN, ast::Primitive::INTEGER},
+    {ast::Primitive::INTEGER},
+  };
+  analysis::GlobalContext context{std::move(operators), {}};
   analysis::Scope scope;
   Reader builtins{"builtin", "<native code>"};
   scope.Define(
