@@ -31,7 +31,11 @@ struct Function {
 };
 
 inline bool operator==(Void, Void) { return true; }
+inline bool operator!=(Void, Void) { return false; }
 bool operator==(const Function& left, const Function& right);
+inline bool operator!=(const Function& left, const Function& right) {
+  return !(left == right);
+}
 std::ostream& operator<<(std::ostream& output, const Type& type);
 
 struct Identifier;

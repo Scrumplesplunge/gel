@@ -1,0 +1,21 @@
+function bool() : boolean {
+  return true
+}
+
+function int() : integer {
+  return 42
+}
+
+function badreturn() : integer {
+  return
+}
+
+function returnsvoid() : void {}
+
+function main() : integer {
+  let a = returnsvoid()
+  let b = returnsvoid() == returnsvoid()
+  let x = bool()
+  x = int()
+  return x
+}

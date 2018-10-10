@@ -9,6 +9,16 @@ constexpr const char* kReservedIdentifiers[] = {
 
 constexpr int kSpacesPerIndent = 2;
 
+ast::Type Parser::ParseType() {
+  Reader::Location location = reader_->location();
+  auto name = IdentifierPrefix();
+  reader_->remove_prefix(name.length());
+  if (name == "void") return ast::Void{};
+  if (name == "boolean") return ast::Primitive::BOOLEAN;
+  if (name == "integer") return ast::Primitive::INTEGER;
+  throw CompileError{location, "Invalid type name: " + std::string{name}};
+}
+
 ast::Identifier Parser::ParseIdentifier() {
   Reader::Location location = reader_->location();
   std::string_view name = IdentifierPrefix();
@@ -327,6 +337,8 @@ std::vector<ast::Identifier> Parser::ParseParameterList() {
   std::vector<ast::Identifier> parameters;
   while (true) {
     parameters.push_back(ParseIdentifier());
+    CheckConsume(" : ");
+    parameters.back().type = ParseType();
     CheckNotEnd();
     if (reader_->Consume(")")) return parameters;
     CheckConsume(", ");
@@ -339,6 +351,9 @@ ast::DefineFunction Parser::ParseFunctionDefinition() {
   CheckConsume("function ");
   auto identifier = ParseIdentifier();
   auto parameters = ParseParameterList();
+  CheckConsume(" : ");
+  auto return_type = ParseType();
+  identifier.type = ast::Function{std::move(return_type), parameters};
   CheckConsume(" ");
   auto body = ParseStatementBlock(0);
   ConsumeNewline();

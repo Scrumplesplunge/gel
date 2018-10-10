@@ -18,7 +18,7 @@ int main() {
   parser.CheckEnd();
 
   // Perform semantics checks.
-  analysis::Context context;
+  analysis::GlobalContext context;
   analysis::Scope scope;
   Reader builtins{"builtin", "<native code>"};
   scope.Define(

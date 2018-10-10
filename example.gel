@@ -1,5 +1,5 @@
 # Compute the nth term of the Fibonnacci sequence.
-function fib(n) {
+function fib(n : integer) : integer {
   let condition = n < 2
   if (condition) {
     # Base case: fib(0) = 0, fib(1) = 1
@@ -11,10 +11,11 @@ function fib(n) {
 }
 
 # Main program: compute and display a term of the Fibonnacci sequence.
-function main() {
+function main() : integer {
   let i = 0
   while (i < 10) {
     do print(fib(i))
     i = i + 1
   }
+  return 0
 }
