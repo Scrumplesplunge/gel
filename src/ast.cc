@@ -4,6 +4,10 @@
 
 namespace ast {
 
+bool IsValueType(const ast::Type& type) {
+  return type.is<Primitive>() || type.is<Array>();
+}
+
 bool operator==(const Function& left, const Function& right) {
   if (!(left.return_type == right.return_type)) return false;
   if (left.parameters.size() != right.parameters.size()) return false;

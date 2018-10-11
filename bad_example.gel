@@ -1,7 +1,13 @@
 # Compute the nth term of the Fibonnacci sequence.
 function fib(n : integer) : integer {
+  # Mismatched types in comparison.
   let f0 = 0 == true
+  # Comparing incomparable types.
   let f1 = fib == fib
+  # Ambiguous array type.
+  let array = [true, 2]
+  # Unambiguous array type.
+  let array2 = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
   let i = 1
   # Redeclared variable.
   let i = 2

@@ -55,14 +55,15 @@ ast::Integer Parser::ParseInteger() {
   return ast::Integer{{location}, value};
 }
 
-std::vector<ast::Expression> Parser::ParseArgumentList() {
-  CheckConsume("(");
-  if (reader_->Consume(")")) return {};
+std::vector<ast::Expression> Parser::ParseExpressionList(std::string_view begin,
+                                                         std::string_view end) {
+  CheckConsume(begin);
+  if (reader_->Consume(end)) return {};
   std::vector<ast::Expression> arguments;
   while (true) {
     arguments.push_back(ParseExpression());
     CheckNotEnd();
-    if (reader_->Consume(")")) return arguments;
+    if (reader_->Consume(end)) return arguments;
     CheckConsume(", ");
   }
 }
@@ -81,6 +82,8 @@ ast::Expression Parser::ParseTerm() {
   if (lookahead == '-' || std::isdigit(lookahead)) {
     // Positive or negative integers.
     return ParseInteger();
+  } else if (lookahead == '[') {
+    return ast::ArrayLiteral{{location}, ParseExpressionList("[", "]")};
   } else if (std::isalpha(lookahead)) {
     auto candidate = IdentifierPrefix();
     if (candidate == "true" || candidate == "false") {
@@ -90,7 +93,7 @@ ast::Expression Parser::ParseTerm() {
     // Variables or function calls.
     auto identifier = ParseIdentifier();
     if (!reader_->empty() && reader_->front() == '(') {
-      auto arguments = ParseArgumentList();
+      auto arguments = ParseExpressionList("(", ")");
       return ast::FunctionCall{
           {location}, std::move(identifier), std::move(arguments)};
     } else {
@@ -256,7 +259,7 @@ ast::DoFunction Parser::ParseDoFunction() {
   CheckConsume("do ");
   auto call_location = reader_->location();
   auto function = ParseIdentifier();
-  auto arguments = ParseArgumentList();
+  auto arguments = ParseExpressionList("(", ")");
   return ast::DoFunction{
       {do_location},
       ast::FunctionCall{

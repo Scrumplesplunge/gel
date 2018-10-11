@@ -13,7 +13,8 @@ class Parser {
   ast::Type ParseType();
   ast::Identifier ParseIdentifier();
   ast::Integer ParseInteger();
-  std::vector<ast::Expression> ParseArgumentList();
+  std::vector<ast::Expression> ParseExpressionList(std::string_view begin,
+                                                   std::string_view end);
   ast::Expression ParseTerm();
   ast::Expression ParseUnary();
   ast::Expression ParseProduct();

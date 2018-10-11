@@ -61,6 +61,30 @@ ast::Integer Check(const ast::Integer& integer, FunctionContext*,
   return copy;
 }
 
+ast::ArrayLiteral Check(const ast::ArrayLiteral& array,
+                        FunctionContext* context, const Scope* scope) {
+  auto copy = array;
+  std::map<ast::Type, Reader::Location> type_exemplars;
+  for (auto& entry : copy.parts) {
+    entry = Check(entry, context, scope);
+    const auto& meta = GetMeta(entry);
+    if (meta.type.has_value()) {
+      type_exemplars.emplace(*meta.type, meta.location);
+    }
+  }
+  if (type_exemplars.size() == 1) {
+    copy.type = ast::Array{type_exemplars.begin()->first};
+  } else if (type_exemplars.size() > 1) {
+    context->global_context->Error(GetMeta(array).location)
+        << "Ambiguous type for array.";
+    for (const auto& [type, location] : type_exemplars) {
+      context->global_context->Note(location)
+          << "Expression of type " << type << ".";
+    }
+  }
+  return copy;
+}
+
 ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
                       const Scope* scope) {
   auto copy = binary;
@@ -253,7 +277,7 @@ ast::DefineVariable Check(const ast::DefineVariable& definition,
                           FunctionContext* context, Scope* scope) {
   auto value_copy = Check(definition.value, context, scope);
   auto value_type = GetMeta(value_copy).type;
-  if (value_type.has_value() && !value_type->is<ast::Primitive>()) {
+  if (value_type.has_value() && !IsValueType(*value_type)) {
     context->global_context->Error(definition.location)
         << "Assignment expression in definition yields type "
         << util::Detail(*value_type)

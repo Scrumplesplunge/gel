@@ -28,6 +28,7 @@ int main() { return gel_main(); }
 void CompileExpression(const ast::Identifier&, std::ostream*);
 void CompileExpression(const ast::Boolean&, std::ostream*);
 void CompileExpression(const ast::Integer&, std::ostream*);
+void CompileExpression(const ast::ArrayLiteral&, std::ostream*);
 void CompileExpression(const ast::Arithmetic&, std::ostream*);
 void CompileExpression(const ast::Compare&, std::ostream*);
 void CompileExpression(const ast::Logical&, std::ostream*);
@@ -50,25 +51,37 @@ void CompileTopLevel(const ast::DefineFunction&, std::ostream*);
 void CompileTopLevel(const std::vector<ast::DefineFunction>&, std::ostream*);
 void CompileTopLevel(const ast::TopLevel&, std::ostream*);
 
+void PrintType(const ast::Void&, std::ostream*);
+void PrintType(const ast::Primitive&, std::ostream*);
+[[noreturn]] void PrintType(const ast::Array&, std::ostream*);
+[[noreturn]] void PrintType(const ast::Function&, std::ostream*);
+void PrintType(const ast::Type&, std::ostream*);
+
+void PrintType(const ast::Void&, std::ostream* output) { *output << "void"; }
+
+void PrintType(const ast::Primitive& primitive, std::ostream* output) {
+  switch (primitive) {
+    case ast::Primitive::BOOLEAN:
+      *output << "bool";
+      break;
+    case ast::Primitive::INTEGER:
+      *output << "int_least64_t";
+      break;
+  }
+}
+
+[[noreturn]] void PrintType(const ast::Array&, std::ostream*) {
+  throw std::logic_error(
+      "Array variable code isn't implemented yet.");
+}
+
+void PrintType(const ast::Function&, std::ostream*) {
+  throw std::logic_error(
+      "No function types should have to be visited when generating C.");
+}
+
 void PrintType(const ast::Type& type, std::ostream* output) {
-  type.visit([&](const auto& node) {
-    using value_type = std::decay_t<decltype(node)>;
-    if constexpr (std::is_same_v<value_type, ast::Void>) {
-      *output << "void";
-    } else if constexpr (std::is_same_v<value_type, ast::Primitive>) {
-      switch (node) {
-        case ast::Primitive::BOOLEAN:
-          *output << "bool";
-          break;
-        case ast::Primitive::INTEGER:
-          *output << "int_least64_t";
-          break;
-      }
-    } else if constexpr (std::is_same_v<value_type, ast::Function>) {
-      throw std::logic_error(
-          "No function types should have to be visited when compiling.");
-    }
-  });
+  type.visit([&](auto&& x) { PrintType(x, output); });
 }
 
 void CompileExpression(const ast::Identifier& identifier,
@@ -82,6 +95,20 @@ void CompileExpression(const ast::Boolean& boolean, std::ostream* output) {
 
 void CompileExpression(const ast::Integer& integer, std::ostream* output) {
   *output << integer.value;
+}
+
+void CompileExpression(const ast::ArrayLiteral& array, std::ostream* output) {
+  *output << "{";
+  bool first = true;
+  for (const auto& entry : array.parts) {
+    if (first) {
+      first = false;
+    } else {
+      *output << ", ";
+    }
+    CompileExpression(entry, output);
+  }
+  *output << "}";
 }
 
 void CompileExpression(const ast::Arithmetic& binary, std::ostream* output) {

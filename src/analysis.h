@@ -75,6 +75,8 @@ class Scope {
 ast::Identifier Check(const ast::Identifier&, FunctionContext*, const Scope*);
 ast::Boolean Check(const ast::Boolean&, FunctionContext*, const Scope*);
 ast::Integer Check(const ast::Integer&, FunctionContext*, const Scope*);
+ast::ArrayLiteral Check(const ast::ArrayLiteral&, FunctionContext*,
+                        const Scope*);
 ast::Arithmetic Check(const ast::Arithmetic&, FunctionContext*, const Scope*);
 ast::Compare Check(const ast::Compare&, FunctionContext*, const Scope*);
 ast::Logical Check(const ast::Logical&, FunctionContext*, const Scope*);
