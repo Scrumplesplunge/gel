@@ -3,6 +3,7 @@
 #include "util.h"
 #include "value.h"
 
+#include <iostream>
 #include <variant>
 
 template <typename... Children>
@@ -70,5 +71,10 @@ bool operator==(const T& left, const one_of<Children...>& right);
 template <typename T, typename... Children,
           typename = std::enable_if_t<util::is_one_of_v<T, Children...>>>
 bool operator!=(const T& left, const one_of<Children...>& right);
+
+// Stream output.
+template <typename... Children>
+std::ostream& operator<<(std::ostream& output,
+                         const one_of<Children...>& value);
 
 #include "one_of.inl.h"

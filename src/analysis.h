@@ -36,10 +36,10 @@ class MessageBuilder {
 };
 
 struct Operators {
-  using ArithmeticKey = std::tuple<ast::Arithmetic::Operation, ast::Type>;
+  using ArithmeticKey = std::tuple<ast::Arithmetic::Operation, types::Type>;
   std::set<ArithmeticKey> arithmetic;
-  std::set<ast::Type> equality_comparable;
-  std::set<ast::Type> ordered;
+  std::set<types::Type> equality_comparable;
+  std::set<types::Type> ordered;
 };
 
 struct GlobalContext {
@@ -53,14 +53,14 @@ struct GlobalContext {
 struct FunctionContext {
   GlobalContext* global_context;
   ast::Identifier this_function;
-  ast::Function type;
+  types::Function type;
 };
 
 class Scope {
  public:
   struct Entry {
     Reader::Location location;
-    std::optional<ast::Type> type;
+    std::optional<types::Type> type;
   };
   explicit Scope(Scope* parent = nullptr) : parent_(parent) {}
 

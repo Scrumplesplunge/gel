@@ -2,6 +2,7 @@
 
 #include "one_of.h"
 #include "reader.h"
+#include "types.h"
 #include "value.h"
 
 #include <memory>
@@ -11,71 +12,6 @@
 #include <vector>
 
 namespace ast {
-
-struct Void;
-enum class Primitive;
-struct Array;
-struct Function;
-using Type = one_of<Void, Primitive, Array, Function>;
-
-struct Void {};
-
-enum class Primitive {
-  BOOLEAN,
-  INTEGER,
-};
-
-struct Array {
-  ast::Type element_type;
-};
-
-struct Identifier;
-struct Function {
-  Type return_type;
-  std::vector<Identifier> parameters;
-};
-
-bool IsValueType(const ast::Type& type);
-
-inline bool operator==(Void, Void) { return true; }
-inline bool operator!=(Void, Void) { return false; }
-inline bool operator>(Void, Void) { return false; }
-inline bool operator>=(Void, Void) { return true; }
-inline bool operator<(Void, Void) { return false; }
-inline bool operator<=(Void, Void) { return true; }
-inline bool operator==(const Array& l, const Array& r) {
-  return l.element_type == r.element_type;
-}
-inline bool operator!=(const Array& l, const Array& r) {
-  return l.element_type != r.element_type;
-}
-inline bool operator>(const Array& l, const Array& r) {
-  return l.element_type > r.element_type;
-}
-inline bool operator>=(const Array& l, const Array& r) {
-  return l.element_type >= r.element_type;
-}
-inline bool operator<(const Array& l, const Array& r) {
-  return l.element_type < r.element_type;
-}
-inline bool operator<=(const Array& l, const Array& r) {
-  return l.element_type <= r.element_type;
-}
-bool operator==(const Function& left, const Function& right);
-inline bool operator!=(const Function& left, const Function& right) {
-  return !(left == right);
-}
-bool operator<(const Function& left, const Function& right);
-inline bool operator<=(const Function& left, const Function& right) {
-  return !(right < left);
-}
-inline bool operator>=(const Function& left, const Function& right) {
-  return !(left < right);
-}
-inline bool operator>(const Function& left, const Function& right) {
-  return right < left;
-}
-std::ostream& operator<<(std::ostream& output, const Type& type);
 
 struct Identifier;
 struct Boolean;
@@ -92,7 +28,7 @@ using Expression =
 
 struct AnyExpression {
   Reader::Location location;
-  std::optional<Type> type = std::nullopt;
+  std::optional<types::Type> type = std::nullopt;
 };
 
 struct Identifier : AnyExpression {

@@ -91,3 +91,11 @@ template <typename T, typename... Children, typename>
 bool operator!=(const T& left, const one_of<Children...>& right) {
   return right != left;
 }
+
+// Stream output.
+template <typename... Children>
+std::ostream& operator<<(std::ostream& output,
+                         const one_of<Children...>& value) {
+  value.visit([&](auto x) { output << x; });
+  return output;
+}

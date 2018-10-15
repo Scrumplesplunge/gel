@@ -20,13 +20,13 @@ int main() {
   // Perform semantics checks.
   analysis::Operators operators = {
     {
-      {ast::Arithmetic::ADD, ast::Primitive::INTEGER},
-      {ast::Arithmetic::DIVIDE, ast::Primitive::INTEGER},
-      {ast::Arithmetic::MULTIPLY, ast::Primitive::INTEGER},
-      {ast::Arithmetic::SUBTRACT, ast::Primitive::INTEGER},
+      {ast::Arithmetic::ADD, types::Primitive::INTEGER},
+      {ast::Arithmetic::DIVIDE, types::Primitive::INTEGER},
+      {ast::Arithmetic::MULTIPLY, types::Primitive::INTEGER},
+      {ast::Arithmetic::SUBTRACT, types::Primitive::INTEGER},
     },
-    {ast::Primitive::BOOLEAN, ast::Primitive::INTEGER},
-    {ast::Primitive::INTEGER},
+    {types::Primitive::BOOLEAN, types::Primitive::INTEGER},
+    {types::Primitive::INTEGER},
   };
   analysis::GlobalContext context{std::move(operators), {}};
   analysis::Scope scope;
@@ -35,10 +35,8 @@ int main() {
       "print",
       analysis::Scope::Entry{
           builtins.location(),
-          ast::Function{
-              ast::Void{},
-              {ast::Identifier{{builtins.location(), ast::Primitive::INTEGER},
-                               "number"}}}});
+          types::Function{
+              types::Void{}, {types::Primitive::INTEGER}}});
   auto checked = analysis::Check(program, &context, &scope);
   if (!context.diagnostics.empty()) {
     for (const auto& message : context.diagnostics) {

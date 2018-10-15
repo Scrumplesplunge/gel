@@ -10,7 +10,7 @@ class Parser {
  public:
   Parser(Reader& reader) : reader_(&reader) {}
 
-  ast::Type ParseType();
+  types::Type ParseType();
   ast::Identifier ParseIdentifier();
   ast::Integer ParseInteger();
   std::vector<ast::Expression> ParseExpressionList(std::string_view begin,

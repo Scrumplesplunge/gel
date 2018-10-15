@@ -50,21 +50,21 @@ ast::Identifier Check(const ast::Identifier& identifier,
 ast::Boolean Check(const ast::Boolean& boolean, FunctionContext*,
                    const Scope*) {
   auto copy = boolean;
-  copy.type = ast::Primitive::BOOLEAN;
+  copy.type = types::Primitive::BOOLEAN;
   return copy;
 }
 
 ast::Integer Check(const ast::Integer& integer, FunctionContext*,
                    const Scope*) {
   auto copy = integer;
-  copy.type = ast::Primitive::INTEGER;
+  copy.type = types::Primitive::INTEGER;
   return copy;
 }
 
 ast::ArrayLiteral Check(const ast::ArrayLiteral& array,
                         FunctionContext* context, const Scope* scope) {
   auto copy = array;
-  std::map<ast::Type, Reader::Location> type_exemplars;
+  std::map<types::Type, Reader::Location> type_exemplars;
   for (auto& entry : copy.parts) {
     entry = Check(entry, context, scope);
     const auto& meta = GetMeta(entry);
@@ -73,7 +73,7 @@ ast::ArrayLiteral Check(const ast::ArrayLiteral& array,
     }
   }
   if (type_exemplars.size() == 1) {
-    copy.type = ast::Array{type_exemplars.begin()->first};
+    copy.type = types::Array{type_exemplars.begin()->first};
   } else if (type_exemplars.size() > 1) {
     context->global_context->Error(GetMeta(array).location)
         << "Ambiguous type for array.";
@@ -125,7 +125,7 @@ ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
 ast::Compare Check(const ast::Compare& binary, FunctionContext* context,
                    const Scope* scope) {
   auto copy = binary;
-  copy.type = ast::Primitive::BOOLEAN;
+  copy.type = types::Primitive::BOOLEAN;
   copy.left = Check(binary.left, context, scope);
   auto left_type = GetMeta(copy.left).type;
   copy.right = Check(binary.right, context, scope);
@@ -176,18 +176,18 @@ ast::Logical Check(const ast::Logical& binary, FunctionContext* context,
   auto right_type = GetMeta(right).type;
 
   // Both arguments should be booleans.
-  if (left_type.has_value() && !(*left_type == ast::Primitive::BOOLEAN)) {
+  if (left_type.has_value() && *left_type != types::Primitive::BOOLEAN) {
     context->global_context->Error(binary.location)
         << "Left argument to logical operation has type "
         << util::Detail(*left_type) << ", which is not a boolean type.";
   }
-  if (right_type.has_value() && !(*right_type == ast::Primitive::BOOLEAN)) {
+  if (right_type.has_value() && *right_type != types::Primitive::BOOLEAN) {
     context->global_context->Error(binary.location)
         << "Right argument to logical operation has type "
         << util::Detail(*left_type) << ", which is not a boolean type.";
   }
   auto copy = binary;
-  copy.type = ast::Primitive::BOOLEAN;
+  copy.type = types::Primitive::BOOLEAN;
   return copy;
 }
 
@@ -198,21 +198,22 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
     context->global_context->Error(call.function.location)
         << "Undefined identifier " << util::Detail(call.function.name) << ".";
     auto copy = call;
-    copy.type = ast::Primitive::INTEGER;
+    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
   }
 
-  const ast::Function* type =
-      entry->type.has_value() ? entry->type->get_if<ast::Function>() : nullptr;
+  const types::Function* type = entry->type.has_value()
+                                    ? entry->type->get_if<types::Function>()
+                                    : nullptr;
   if (type == nullptr) {
     context->global_context->Error(call.function.location)
         << util::Detail(call.function.name) << " is not of function type.";
     context->global_context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
-    copy.type = ast::Primitive::INTEGER;
+    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
@@ -226,7 +227,7 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
     context->global_context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
-    copy.type = ast::Primitive::INTEGER;
+    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
@@ -238,14 +239,12 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
   for (std::size_t i = 0; i < call.arguments.size(); i++) {
     auto arg_copy = Check(call.arguments[i], context, scope);
     auto arg_type = GetMeta(arg_copy).type;
-    if (arg_type.has_value() && type->parameters[i].type.has_value() &&
-        !(*arg_type == *type->parameters[i].type)) {
+    if (arg_type.has_value() && *arg_type != type->parameters[i]) {
       context->global_context->Error(GetMeta(call.arguments[i]).location)
-          << "Type mismatch for parameter "
-          << util::Detail(type->parameters[i].name) << " of call to "
+          << "Type mismatch for parameter " << util::Detail(i) << " of call to "
           << util::Detail(call.function.name) << ". Expected type is "
-          << util::Detail(*type->parameters[i].type)
-          << " but the actual type is " << util::Detail(*arg_type) << ".";
+          << util::Detail(type->parameters[i]) << " but the actual type is "
+          << util::Detail(*arg_type) << ".";
     }
     copy.arguments.push_back(std::move(arg_copy));
   }
@@ -255,14 +254,14 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
 ast::LogicalNot Check(const ast::LogicalNot& logical_not,
                       FunctionContext* context, const Scope* scope) {
   auto value_copy = Check(logical_not.argument, context, scope);
-  const std::optional<ast::Type>& value_type = GetMeta(value_copy).type;
-  if (value_type.has_value() && !(*value_type == ast::Primitive::BOOLEAN)) {
+  const std::optional<types::Type>& value_type = GetMeta(value_copy).type;
+  if (value_type.has_value() && *value_type != types::Primitive::BOOLEAN) {
     context->global_context->Error(GetMeta(value_copy).location)
         << "Argument to logical negation is of type "
         << util::Detail(*value_type) << ", not boolean.";
   }
   auto copy = logical_not;
-  copy.type = ast::Primitive::BOOLEAN;
+  copy.type = types::Primitive::BOOLEAN;
   return copy;
 }
 
@@ -327,7 +326,7 @@ ast::Assign Check(const ast::Assign& assignment, FunctionContext* context,
     entry = scope->Lookup(assignment.variable.name);
   }
   if (entry->type.has_value() && value_type.has_value() &&
-      !(*entry->type == *value_type)) {
+      *entry->type != *value_type) {
     context->global_context->Error(assignment.location)
         << "Type mismatch in assignment: "
         << util::Detail(assignment.variable.name) << " has type "
@@ -344,7 +343,7 @@ ast::DoFunction Check(const ast::DoFunction& do_function,
   auto copy = do_function;
   copy.function_call = Check(do_function.function_call, context, scope);
   auto type = copy.function_call.type;
-  if (type.has_value() && !(*type == ast::Void{})) {
+  if (type.has_value() && *type != types::Void{}) {
     context->global_context->Warning(copy.location)
         << "Discarding return value of type " << util::Detail(*type)
         << " in call to " << util::Detail(copy.function_call.function.name)
@@ -359,11 +358,11 @@ ast::If Check(const ast::If& if_statement, FunctionContext* context,
   copy.condition = Check(if_statement.condition, context, scope);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
-      !(*condition_type == ast::Primitive::BOOLEAN)) {
+      *condition_type != types::Primitive::BOOLEAN) {
     context->global_context->Error(GetMeta(copy.condition).location)
         << "Condition for if statement has type "
         << util::Detail(*condition_type) << ", not "
-        << util::Detail(ast::Primitive::BOOLEAN) << ".";
+        << util::Detail(types::Primitive::BOOLEAN) << ".";
   }
   Scope true_scope{scope};
   copy.if_true = Check(if_statement.if_true, context, &true_scope);
@@ -378,11 +377,11 @@ ast::While Check(const ast::While& while_statement, FunctionContext* context,
   copy.condition = Check(while_statement.condition, context, scope);
   auto condition_type = GetMeta(copy.condition).type;
   if (condition_type.has_value() &&
-      !(*condition_type == ast::Primitive::BOOLEAN)) {
+      *condition_type != types::Primitive::BOOLEAN) {
     context->global_context->Error(GetMeta(copy.condition).location)
         << "Condition for while statement has type "
         << util::Detail(*condition_type) << ", not "
-        << util::Detail(ast::Primitive::BOOLEAN) << ".";
+        << util::Detail(types::Primitive::BOOLEAN) << ".";
   }
   Scope body_scope{scope};
   copy.body = Check(while_statement.body, context, &body_scope);
@@ -391,7 +390,7 @@ ast::While Check(const ast::While& while_statement, FunctionContext* context,
 
 ast::ReturnVoid Check(const ast::ReturnVoid& return_statement,
                       FunctionContext* context, Scope*) {
-  if (context->type.return_type != ast::Void{}) {
+  if (context->type.return_type != types::Void{}) {
     context->global_context->Error(return_statement.location)
         << "Cannot return without a value: "
         << util::Detail(context->this_function.name) << " has return type "
@@ -454,7 +453,7 @@ ast::DefineFunction Check(const ast::DefineFunction& definition,
     }
   }
   const auto* type = definition.function.type.has_value()
-                         ? definition.function.type->get_if<ast::Function>()
+                         ? definition.function.type->get_if<types::Function>()
                          : nullptr;
   if (type == nullptr)
     throw std::logic_error("No type information for function.");

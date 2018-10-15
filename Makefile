@@ -14,6 +14,7 @@ GEL_DEPS =  \
 	parser  \
 	reader  \
 	target-c  \
+	types  \
 	util  \
 	value  \
 	main

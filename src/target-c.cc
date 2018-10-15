@@ -1,5 +1,6 @@
 #include "target-c.h"
 
+#include "types.h"
 #include "util.h"
 
 #include <algorithm>
@@ -51,36 +52,36 @@ void CompileTopLevel(const ast::DefineFunction&, std::ostream*);
 void CompileTopLevel(const std::vector<ast::DefineFunction>&, std::ostream*);
 void CompileTopLevel(const ast::TopLevel&, std::ostream*);
 
-void PrintType(const ast::Void&, std::ostream*);
-void PrintType(const ast::Primitive&, std::ostream*);
-[[noreturn]] void PrintType(const ast::Array&, std::ostream*);
-[[noreturn]] void PrintType(const ast::Function&, std::ostream*);
-void PrintType(const ast::Type&, std::ostream*);
+void PrintType(const types::Void&, std::ostream*);
+void PrintType(const types::Primitive&, std::ostream*);
+[[noreturn]] void PrintType(const types::Array&, std::ostream*);
+[[noreturn]] void PrintType(const types::Function&, std::ostream*);
+void PrintType(const types::Type&, std::ostream*);
 
-void PrintType(const ast::Void&, std::ostream* output) { *output << "void"; }
+void PrintType(const types::Void&, std::ostream* output) { *output << "void"; }
 
-void PrintType(const ast::Primitive& primitive, std::ostream* output) {
+void PrintType(const types::Primitive& primitive, std::ostream* output) {
   switch (primitive) {
-    case ast::Primitive::BOOLEAN:
+    case types::Primitive::BOOLEAN:
       *output << "bool";
       break;
-    case ast::Primitive::INTEGER:
+    case types::Primitive::INTEGER:
       *output << "int_least64_t";
       break;
   }
 }
 
-[[noreturn]] void PrintType(const ast::Array&, std::ostream*) {
+[[noreturn]] void PrintType(const types::Array&, std::ostream*) {
   throw std::logic_error(
       "Array variable code isn't implemented yet.");
 }
 
-void PrintType(const ast::Function&, std::ostream*) {
+void PrintType(const types::Function&, std::ostream*) {
   throw std::logic_error(
       "No function types should have to be visited when generating C.");
 }
 
-void PrintType(const ast::Type& type, std::ostream* output) {
+void PrintType(const types::Type& type, std::ostream* output) {
   type.visit([&](auto&& x) { PrintType(x, output); });
 }
 
@@ -277,8 +278,8 @@ void CompileStatement(const ast::Statement& statement, std::ostream* output,
 
 void CompileTopLevel(const ast::DefineFunction& definition,
                      std::ostream* output) {
-  const ast::Function* type =
-      definition.function.type.value().get_if<ast::Function>();
+  const types::Function* type =
+      definition.function.type.value().get_if<types::Function>();
   PrintType(type->return_type, output);
   *output << " ";
   CompileExpression(definition.function, output);
