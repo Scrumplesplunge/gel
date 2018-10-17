@@ -45,6 +45,8 @@ struct Operators {
 struct GlobalContext {
   const Operators operators;
   std::vector<Message> diagnostics;
+  std::vector<types::Type> types;
+  void AddType(const types::Type& type);
   MessageBuilder Error(Reader::Location location);
   MessageBuilder Warning(Reader::Location location);
   MessageBuilder Note(Reader::Location location);
@@ -71,6 +73,8 @@ class Scope {
   const Scope* parent_ = nullptr;
   std::map<std::string, Entry, std::less<>> bindings_;
 };
+
+std::tuple<GlobalContext, Scope> DefaultState();
 
 ast::Identifier Check(const ast::Identifier&, FunctionContext*, const Scope*);
 ast::Boolean Check(const ast::Boolean&, FunctionContext*, const Scope*);

@@ -1,0 +1,84 @@
+The story is this:
+
+I wanted to implement arrays. However, before I can implement arrays properly
+I need to implement proper treatment of value types in the compiler. This means
+that I need to have some representation for fundamental operations such as
+construction, destruction, copies and moves.
+
+function foo() {
+  let a = [1, 2, 3]
+  let b = [a, a]
+}
+
+should translate into the following pseudo-code:
+
+reserve space for a and b
+
+t1 <- malloc(sizeof(integer) * 3)
+construct integer t1 1
+t2 <- t1 + 1
+construct integer t2 2
+t3 <- t1 + 2
+construct integer t3 3
+construct array<integer> a 3 t1
+
+t4 <- malloc(sizeof(array<integer>) * 2)
+copyconstruct array<integer> t4 a
+t5 <- t4 + 1
+copyconstruct array<integer> t5 a
+construct array<array<integer>> b 2 t4
+
+destruct array<array<integer>> b
+destruct array<integer> a
+
+or:
+
+struct array_integer {
+  int* data;
+  int_least64_t size;
+};
+
+struct array_array_integer {
+  struct array_integer* data;
+  int_least64_t size;
+};
+
+struct array_integer a;
+{
+  struct integer* t = malloc(sizeof(struct integer) * 3);
+  t[0] = 1;
+  t[1] = 2;
+  t[2] = 3;
+  a = {
+    .data = t,
+    .size = 3,
+  };
+}
+struct array_array_integer b;
+{
+  struct array_integer* t = malloc(sizeof(struct array_integer) * 2);
+  t[0] = copy_construct_array_integer(&a);
+  t[1] = copy_construct_array_integer(&a);
+  b = {
+    .data = t,
+    .size = 2,
+  };
+}
+
+-----
+
+let x = 3 * f() + 2
+
+->
+
+LetIn{
+    x,
+    LetIn{
+        t1,
+        LetIn{
+            t2,
+            Call{f, {}},
+            Arithmetic{Arithmetic::MULTIPLY, Integer{3}, t2}},
+        Arithmetic
+t2}
+let x = (let t1 = (let t2 = f() in 3 * f) in t1 + 2)

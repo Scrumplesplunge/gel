@@ -2,10 +2,28 @@
 
 #include "util.h"
 
+#include <algorithm>
+
 namespace analysis {
+namespace {
+
+const Reader::Location BuiltinLocation() {
+  static const auto* const reader = new Reader{"builtin", "<native code>"};
+  return reader->location();
+}
+
+}  // namespace
 
 MessageBuilder::~MessageBuilder() {
   context_->diagnostics.push_back(Message{type_, location_, text_.str()});
+}
+
+void GlobalContext::AddType(const types::Type& type) {
+  auto i = std::find(types.begin(), types.end(), type);
+  if (i != types.end()) return;
+  // Add all child types first.
+  type.visit(types::visit_children{[this](auto subtype) { AddType(subtype); }});
+  types.emplace_back(type);
 }
 
 MessageBuilder GlobalContext::Error(Reader::Location location) {
@@ -34,6 +52,36 @@ const Scope::Entry* Scope::Lookup(std::string_view name) const {
   return parent_->Lookup(name);
 }
 
+std::tuple<GlobalContext, Scope> DefaultState() {
+  const GlobalContext global_context = {
+    /* .operators = */ {
+      {
+        {ast::Arithmetic::ADD, types::Primitive::INTEGER},
+        {ast::Arithmetic::DIVIDE, types::Primitive::INTEGER},
+        {ast::Arithmetic::MULTIPLY, types::Primitive::INTEGER},
+        {ast::Arithmetic::SUBTRACT, types::Primitive::INTEGER},
+      },
+      {types::Primitive::BOOLEAN, types::Primitive::INTEGER},
+      {types::Primitive::INTEGER},
+    },
+    /* .diagnostics = */ {},
+    /* .types = */ {
+      types::Void{},
+      types::Primitive::BOOLEAN,
+      types::Primitive::INTEGER,
+    },
+  };
+
+  Scope scope;
+  scope.Define(
+      "print",
+      analysis::Scope::Entry{
+          BuiltinLocation(),
+          types::Function{
+              types::Void{}, {types::Primitive::INTEGER}}});
+  return {std::move(global_context), std::move(scope)};
+}
+
 ast::Identifier Check(const ast::Identifier& identifier,
                       FunctionContext* context, const Scope* scope) {
   auto* entry = scope->Lookup(identifier.name);
@@ -47,17 +95,19 @@ ast::Identifier Check(const ast::Identifier& identifier,
   return copy;
 }
 
-ast::Boolean Check(const ast::Boolean& boolean, FunctionContext*,
+ast::Boolean Check(const ast::Boolean& boolean, FunctionContext* context,
                    const Scope*) {
   auto copy = boolean;
   copy.type = types::Primitive::BOOLEAN;
+  context->global_context->AddType(types::Primitive::BOOLEAN);
   return copy;
 }
 
-ast::Integer Check(const ast::Integer& integer, FunctionContext*,
+ast::Integer Check(const ast::Integer& integer, FunctionContext* context,
                    const Scope*) {
   auto copy = integer;
   copy.type = types::Primitive::INTEGER;
+  context->global_context->AddType(types::Primitive::INTEGER);
   return copy;
 }
 
@@ -74,6 +124,7 @@ ast::ArrayLiteral Check(const ast::ArrayLiteral& array,
   }
   if (type_exemplars.size() == 1) {
     copy.type = types::Array{type_exemplars.begin()->first};
+    context->global_context->AddType(*copy.type);
   } else if (type_exemplars.size() > 1) {
     context->global_context->Error(GetMeta(array).location)
         << "Ambiguous type for array.";
@@ -110,6 +161,7 @@ ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
   // At this point we know that at least one of the arguments has a type.
   auto inferred_type = left_type.has_value() ? *left_type : *right_type;
   copy.type = inferred_type;
+  context->global_context->AddType(*copy.type);
 
   const auto& operators = context->global_context->operators.arithmetic;
   auto i = operators.find({binary.operation, inferred_type});
@@ -125,6 +177,7 @@ ast::Arithmetic Check(const ast::Arithmetic& binary, FunctionContext* context,
 ast::Compare Check(const ast::Compare& binary, FunctionContext* context,
                    const Scope* scope) {
   auto copy = binary;
+  context->global_context->AddType(types::Primitive::BOOLEAN);
   copy.type = types::Primitive::BOOLEAN;
   copy.left = Check(binary.left, context, scope);
   auto left_type = GetMeta(copy.left).type;
@@ -187,6 +240,7 @@ ast::Logical Check(const ast::Logical& binary, FunctionContext* context,
         << util::Detail(*left_type) << ", which is not a boolean type.";
   }
   auto copy = binary;
+  context->global_context->AddType(types::Primitive::BOOLEAN);
   copy.type = types::Primitive::BOOLEAN;
   return copy;
 }
@@ -198,7 +252,6 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
     context->global_context->Error(call.function.location)
         << "Undefined identifier " << util::Detail(call.function.name) << ".";
     auto copy = call;
-    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
@@ -213,7 +266,6 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
     context->global_context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
-    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
@@ -227,7 +279,6 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
     context->global_context->Note(entry->location)
         << util::Detail(call.function.name) << " is declared here.";
     auto copy = call;
-    copy.type = types::Primitive::INTEGER;
     // Visit each argument just for the diagnostics.
     for (const auto& argument : call.arguments) Check(argument, context, scope);
     return copy;
@@ -235,6 +286,7 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
 
   auto copy = call;
   copy.type = type->return_type;
+  context->global_context->AddType(*copy.type);
   copy.arguments.clear();
   for (std::size_t i = 0; i < call.arguments.size(); i++) {
     auto arg_copy = Check(call.arguments[i], context, scope);
@@ -253,6 +305,7 @@ ast::FunctionCall Check(const ast::FunctionCall& call, FunctionContext* context,
 
 ast::LogicalNot Check(const ast::LogicalNot& logical_not,
                       FunctionContext* context, const Scope* scope) {
+  context->global_context->AddType(types::Primitive::BOOLEAN);
   auto value_copy = Check(logical_not.argument, context, scope);
   const std::optional<types::Type>& value_type = GetMeta(value_copy).type;
   if (value_type.has_value() && *value_type != types::Primitive::BOOLEAN) {
@@ -274,16 +327,16 @@ ast::Expression Check(const ast::Expression& expression,
 
 ast::DefineVariable Check(const ast::DefineVariable& definition,
                           FunctionContext* context, Scope* scope) {
-  auto value_copy = Check(definition.value, context, scope);
-  auto value_type = GetMeta(value_copy).type;
+  auto copy = definition;
+  copy.value = Check(definition.value, context, scope);
+  auto value_type = GetMeta(copy.value).type;
+  copy.variable.type = value_type;
   if (value_type.has_value() && !IsValueType(*value_type)) {
     context->global_context->Error(definition.location)
         << "Assignment expression in definition yields type "
         << util::Detail(*value_type)
         << ", which is not a suitable type for a variable.";
   }
-  auto copy = definition;
-  copy.variable.type = GetMeta(value_copy).type;
   Scope::Entry entry{definition.location, copy.variable.type};
   // A call to Define() will succeed if there is no variable with the same name
   // that was defined in the current scope. However, there may still be a name
@@ -312,8 +365,9 @@ ast::DefineVariable Check(const ast::DefineVariable& definition,
 
 ast::Assign Check(const ast::Assign& assignment, FunctionContext* context,
                   Scope* scope) {
-  auto value_copy = Check(assignment.value, context, scope);
-  auto value_type = GetMeta(value_copy).type;
+  auto copy = assignment;
+  copy.value = Check(assignment.value, context, scope);
+  auto value_type = GetMeta(copy.value).type;
   auto* entry = scope->Lookup(assignment.variable.name);
   if (entry == nullptr) {
     context->global_context->Error(assignment.location)
@@ -335,7 +389,7 @@ ast::Assign Check(const ast::Assign& assignment, FunctionContext* context,
     context->global_context->Note(entry->location)
         << util::Detail(assignment.variable.name) << " is declared here.";
   }
-  return assignment;
+  return copy;
 }
 
 ast::DoFunction Check(const ast::DoFunction& do_function,

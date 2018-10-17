@@ -18,25 +18,7 @@ int main() {
   parser.CheckEnd();
 
   // Perform semantics checks.
-  analysis::Operators operators = {
-    {
-      {ast::Arithmetic::ADD, types::Primitive::INTEGER},
-      {ast::Arithmetic::DIVIDE, types::Primitive::INTEGER},
-      {ast::Arithmetic::MULTIPLY, types::Primitive::INTEGER},
-      {ast::Arithmetic::SUBTRACT, types::Primitive::INTEGER},
-    },
-    {types::Primitive::BOOLEAN, types::Primitive::INTEGER},
-    {types::Primitive::INTEGER},
-  };
-  analysis::GlobalContext context{std::move(operators), {}};
-  analysis::Scope scope;
-  Reader builtins{"builtin", "<native code>"};
-  scope.Define(
-      "print",
-      analysis::Scope::Entry{
-          builtins.location(),
-          types::Function{
-              types::Void{}, {types::Primitive::INTEGER}}});
+  auto [context, scope] = analysis::DefaultState();
   auto checked = analysis::Check(program, &context, &scope);
   if (!context.diagnostics.empty()) {
     for (const auto& message : context.diagnostics) {
@@ -53,7 +35,7 @@ int main() {
   }
   {
     std::ofstream output{".gel-output.c"};
-    target::c::Compile(checked, &output);
+    target::c::Compile(context, checked, &output);
   }
   int compile_status = std::system("gcc .gel-output.c -o .gel-output");
   if (compile_status) return compile_status;

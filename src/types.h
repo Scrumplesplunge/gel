@@ -60,4 +60,19 @@ bool operator>=(const T& left, const T& right) { return !(left < right); }
 template <typename T>
 bool operator>(const T& left, const T& right) { return right < left; }
 
+template <typename F>
+class visit_children {
+ public:
+  visit_children(F&& functor) : functor_(functor) {}
+  void operator()(const Void& v);
+  void operator()(const Function&);
+  void operator()(const Primitive&);
+  void operator()(const Array&);
+ private:
+  F functor_;
+};
+template <typename F> visit_children(F) -> visit_children<F>;
+
 }  // namespace types
+
+#include "types.inl.h"

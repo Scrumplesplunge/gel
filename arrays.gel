@@ -1,0 +1,6 @@
+function main() : integer {
+  let array1 = [1, 2, 3]
+  let array2 = array1
+  # return array[0]
+  return 0
+}

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <map>
 
 namespace target::c {
 namespace {
@@ -14,8 +15,15 @@ constexpr char kHeader[] = R"(
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-void gel_print(int_least64_t number) { printf("%d\n", number); }
+typedef struct gel_void {} gel_void;
+typedef bool gel_boolean;
+typedef int_least64_t gel_integer;
+
+gel_void gel_print(gel_integer number) {
+  printf("%lld\n", (long long) number);
+}
 
 // Start of user code.
 )";
@@ -26,302 +34,393 @@ constexpr char kFooter[] = R"(
 int main() { return gel_main(); }
 )";
 
-void CompileExpression(const ast::Identifier&, std::ostream*);
-void CompileExpression(const ast::Boolean&, std::ostream*);
-void CompileExpression(const ast::Integer&, std::ostream*);
-void CompileExpression(const ast::ArrayLiteral&, std::ostream*);
-void CompileExpression(const ast::Arithmetic&, std::ostream*);
-void CompileExpression(const ast::Compare&, std::ostream*);
-void CompileExpression(const ast::Logical&, std::ostream*);
-void CompileExpression(const ast::FunctionCall&, std::ostream*);
-void CompileExpression(const ast::LogicalNot&, std::ostream*);
-void CompileExpression(const ast::Expression&, std::ostream*);
+class Compiler {
+ public:
+  Compiler(std::ostream* output) : output_(output) {}
 
-void CompileStatement(const ast::DefineVariable&, std::ostream*, int indent);
-void CompileStatement(const ast::Assign&, std::ostream*, int indent);
-void CompileStatement(const ast::DoFunction&, std::ostream*, int indent);
-void CompileStatement(const ast::If&, std::ostream*, int indent);
-void CompileStatement(const ast::While&, std::ostream*, int indent);
-void CompileStatement(const ast::ReturnVoid&, std::ostream*, int indent);
-void CompileStatement(const ast::Return&, std::ostream*, int indent);
-void CompileStatement(const std::vector<ast::Statement>&, std::ostream*,
-                      int indent);
-void CompileStatement(const ast::Statement&, std::ostream*, int indent);
+  // Emit code to declare the given type.
+  void DeclareType(const types::Void&);
+  void DeclareType(const types::Function&);
+  void DeclareType(const types::Primitive&);
+  void DeclareType(const types::Array&);
+  void DeclareAnyType(const types::Type&);
 
-void CompileTopLevel(const ast::DefineFunction&, std::ostream*);
-void CompileTopLevel(const std::vector<ast::DefineFunction>&, std::ostream*);
-void CompileTopLevel(const ast::TopLevel&, std::ostream*);
+  // Emit an assignment of the given expression to the given output variable.
+  // The variable is not declared as part of this, so it should have already
+  // been declared. The current line and any additional lines should be indented
+  // by the given indent amount. The output should be terminated with a newline.
+  void CompileExpression(std::string_view output, const ast::Identifier&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::Boolean&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::Integer&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::ArrayLiteral&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::Arithmetic&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::Compare&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::Logical&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::FunctionCall&,
+                         int indent);
+  void CompileExpression(std::string_view output, const ast::LogicalNot&,
+                         int indent);
+  void CompileAnyExpression(std::string_view output, const ast::Expression&,
+                            int indent);
 
-void PrintType(const types::Void&, std::ostream*);
-void PrintType(const types::Primitive&, std::ostream*);
-[[noreturn]] void PrintType(const types::Array&, std::ostream*);
-[[noreturn]] void PrintType(const types::Function&, std::ostream*);
-void PrintType(const types::Type&, std::ostream*);
+  // Emit code to execute the given statement. The current line and any
+  // additional lines should be indented by the given indent amount. The output
+  // should be terminated with a newline.
+  void CompileStatement(const ast::DefineVariable&, int indent);
+  void CompileStatement(const ast::Assign&, int indent);
+  void CompileStatement(const ast::DoFunction&, int indent);
+  void CompileStatement(const ast::If&, int indent);
+  void CompileStatement(const ast::While&, int indent);
+  void CompileStatement(const ast::ReturnVoid&, int indent);
+  void CompileStatement(const ast::Return&, int indent);
+  void CompileStatement(const std::vector<ast::Statement>&, int indent);
+  void CompileAnyStatement(const ast::Statement&, int indent);
 
-void PrintType(const types::Void&, std::ostream* output) { *output << "void"; }
+  // Emit code to declare the given constructs.
+  void CompileTopLevel(const ast::DefineFunction&);
+  void CompileTopLevel(const std::vector<ast::DefineFunction>&);
+  void CompileAnyTopLevel(const ast::TopLevel&);
 
-void PrintType(const types::Primitive& primitive, std::ostream* output) {
-  switch (primitive) {
-    case types::Primitive::BOOLEAN:
-      *output << "bool";
-      break;
-    case types::Primitive::INTEGER:
-      *output << "int_least64_t";
-      break;
+ private:
+  // Generate a new unique identifier.
+  std::string NextIdentifier();
+
+  std::ostream* output_;
+  std::uint64_t next_id_ = 0;
+  std::map<types::Type, std::string> type_names_ = {
+    {types::Void{}, "gel_void"},
+    {types::Primitive::BOOLEAN, "gel_boolean"},
+    {types::Primitive::INTEGER, "gel_integer"},
+  };
+};
+
+void Compiler::DeclareType(const types::Void&) {
+  *output_ << "// <nothing to declare>\n";
+}
+
+void Compiler::DeclareType(const types::Function&) {
+  *output_ << "// <nothing to declare>\n";
+}
+
+void Compiler::DeclareType(const types::Primitive&) {
+  *output_ << "// <nothing to declare>\n";
+}
+
+void Compiler::DeclareType(const types::Array& array) {
+  auto name = NextIdentifier();
+  const auto& element_name = type_names_.at(array.element_type);
+  *output_ << "typedef struct " << name << " {\n"
+           << "  " << element_name << "* data;\n"
+           << "  " << type_names_.at(types::Primitive::INTEGER) << " size;\n"
+           << "} " << name << ";\n";
+  type_names_.emplace(array, name);
+}
+
+void Compiler::DeclareAnyType(const types::Type& type) {
+  *output_ << "// " << type << "\n";
+  type.visit([this](auto x) { DeclareType(x); });
+}
+
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Identifier& identifier,
+                                 int indent) {
+  *output_ << util::Spaces{indent} << variable << " = gel_" << identifier.name
+           << ";\n";
+}
+
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Boolean& boolean, int indent) {
+  *output_ << util::Spaces{indent} << variable << " = "
+           << (boolean.value ? "true" : "false") << ";\n";
+}
+
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Integer& integer, int indent) {
+  *output_ << util::Spaces{indent} << variable << " = " << integer.value
+           << ";\n";
+}
+
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::ArrayLiteral& array,
+                                 int indent) {
+  const types::Type& element_type =
+      array.type->get_if<types::Array>()->element_type;
+  const auto& element_type_name = type_names_.at(element_type);
+  auto temp = NextIdentifier();
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << element_type_name << "* " << temp
+           << " = malloc(" << array.parts.size() << " * sizeof("
+           << element_type_name << "));\n";
+  for (std::size_t i = 0, n = array.parts.size(); i < n; i++) {
+    CompileAnyExpression(temp + "[" + std::to_string(i) + "]", array.parts[i],
+                         indent + 2);
   }
+  const auto& array_type_name = type_names_.at(*array.type);
+  *output_ << util::Spaces{indent + 2} << variable << " = (struct "
+           << array_type_name << ") {\n" << util::Spaces{indent + 4}
+           << ".data = " << temp << ",\n" << util::Spaces{indent + 4}
+           << ".size = " << array.parts.size() << ",\n"
+           << util::Spaces{indent + 2} << "};\n"
+           << util::Spaces{indent} << "}";
 }
 
-[[noreturn]] void PrintType(const types::Array&, std::ostream*) {
-  throw std::logic_error(
-      "Array variable code isn't implemented yet.");
-}
-
-void PrintType(const types::Function&, std::ostream*) {
-  throw std::logic_error(
-      "No function types should have to be visited when generating C.");
-}
-
-void PrintType(const types::Type& type, std::ostream* output) {
-  type.visit([&](auto&& x) { PrintType(x, output); });
-}
-
-void CompileExpression(const ast::Identifier& identifier,
-                       std::ostream* output) {
-  *output << "gel_" << identifier.name;
-}
-
-void CompileExpression(const ast::Boolean& boolean, std::ostream* output) {
-  *output << (boolean.value ? "true" : "false");
-}
-
-void CompileExpression(const ast::Integer& integer, std::ostream* output) {
-  *output << integer.value;
-}
-
-void CompileExpression(const ast::ArrayLiteral& array, std::ostream* output) {
-  *output << "{";
-  bool first = true;
-  for (const auto& entry : array.parts) {
-    if (first) {
-      first = false;
-    } else {
-      *output << ", ";
-    }
-    CompileExpression(entry, output);
-  }
-  *output << "}";
-}
-
-void CompileExpression(const ast::Arithmetic& binary, std::ostream* output) {
-  *output << "(";
-  CompileExpression(binary.left, output);
-  *output << " ";
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Arithmetic& binary, int indent) {
+  const auto& type_name = type_names_.at(*binary.type);
+  auto left = NextIdentifier(), right = NextIdentifier();
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << type_name << " " << left << ", "
+           << right << ";\n";
+  CompileAnyExpression(left, binary.left, indent + 2);
+  CompileAnyExpression(right, binary.right, indent + 2);
+  *output_ << util::Spaces{indent + 2} << variable << " = " << left << " ";
   switch (binary.operation) {
     case ast::Arithmetic::ADD:
-      *output << "+";
+      *output_ << "+";
       break;
     case ast::Arithmetic::DIVIDE:
-      *output << "/";
+      *output_ << "/";
       break;
     case ast::Arithmetic::MULTIPLY:
-      *output << "*";
+      *output_ << "*";
       break;
     case ast::Arithmetic::SUBTRACT:
-      *output << "-";
+      *output_ << "-";
       break;
   }
-  *output << " ";
-  CompileExpression(binary.right, output);
-  *output << ")";
+  *output_ << " " << right << ";\n" << util::Spaces{indent} << "}\n";
 }
 
-void CompileExpression(const ast::Compare& binary, std::ostream* output) {
-  *output << "(";
-  CompileExpression(binary.left, output);
-  *output << " ";
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Compare& binary, int indent) {
+  const auto& type_name = type_names_.at(*GetMeta(binary.left).type);
+  auto left = NextIdentifier(), right = NextIdentifier();
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << type_name << " " << left << ", "
+           << right << ";\n";
+  CompileAnyExpression(left, binary.left, indent + 2);
+  CompileAnyExpression(right, binary.right, indent + 2);
+  *output_ << util::Spaces{indent + 2} << variable << " = " << left << " ";
   switch (binary.operation) {
     case ast::Compare::EQUAL:
-      *output << "==";
+      *output_ << "==";
       break;
     case ast::Compare::GREATER_OR_EQUAL:
-      *output << ">=";
+      *output_ << ">=";
       break;
     case ast::Compare::GREATER_THAN:
-      *output << ">";
+      *output_ << ">";
       break;
     case ast::Compare::LESS_OR_EQUAL:
-      *output << "<=";
+      *output_ << "<=";
       break;
     case ast::Compare::LESS_THAN:
-      *output << "<";
+      *output_ << "<";
       break;
     case ast::Compare::NOT_EQUAL:
-      *output << "!=";
+      *output_ << "!=";
       break;
   }
-  *output << " ";
-  CompileExpression(binary.right, output);
-  *output << ")";
+  *output_ << " " << right << ";\n" << util::Spaces{indent} << "}\n";
 }
 
-void CompileExpression(const ast::Logical& binary, std::ostream* output) {
-  *output << "(";
-  CompileExpression(binary.left, output);
-  *output << " ";
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::Logical& binary, int indent) {
+  auto end = NextIdentifier();
+  CompileAnyExpression(variable, binary.left, indent);
+  // Generate the short-circuit path.
+  *output_ << util::Spaces{indent} << "if (";
   switch (binary.operation) {
     case ast::Logical::AND:
-      *output << "&&";
+      *output_ << "!" << variable;
       break;
     case ast::Logical::OR:
-      *output << "||";
+      *output_ << variable;
       break;
   }
-  *output << " ";
-  CompileExpression(binary.right, output);
-  *output << ")";
+  *output_ << ") goto " << end << ";\n";
+  CompileAnyExpression(variable, binary.right, indent);
+  *output_ << end << ":\n";
 }
 
-void CompileExpression(const ast::FunctionCall& call, std::ostream* output) {
-  CompileExpression(call.function, output);
-  *output << "(";
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::FunctionCall& call,
+                                 int indent) {
+  *output_ << util::Spaces{indent} << "{\n";
+  // Generate each argument, left-to-right, and store them in variables.
+  auto n = call.arguments.size();
+  std::vector<std::string> arguments;
+  arguments.reserve(n);
+  for (std::size_t i = 0; i < n; i++) {
+    arguments.push_back(NextIdentifier());
+    const auto& type_name = type_names_.at(*GetMeta(call.arguments[i]).type);
+    *output_ << util::Spaces{indent + 2} << type_name << " "
+             << arguments.back() << ";\n";
+    CompileAnyExpression(arguments.back(), call.arguments[i], indent + 2);
+  }
+
+  // Call the function with all of the arguments.
+  *output_ << util::Spaces{indent} << variable << " = gel_"
+           << call.function.name << "(";
   bool first = true;
-  for (const auto& argument : call.arguments) {
+  for (const auto& argument : arguments) {
     if (first) {
       first = false;
     } else {
-      *output << ", ";
+      *output_ << ", ";
     }
-    CompileExpression(argument, output);
+    *output_ << argument;
   }
-  *output << ")";
+  *output_ << ");\n" << util::Spaces{indent} << "}\n";
 }
 
-void CompileExpression(const ast::LogicalNot& op, std::ostream* output) {
-  *output << "!";
-  CompileExpression(op.argument, output);
+void Compiler::CompileExpression(std::string_view variable,
+                                 const ast::LogicalNot& op, int indent) {
+  CompileAnyExpression(variable, op.argument, indent);
+  *output_ << util::Spaces{indent} << variable << " = !" << variable << ";\n";
 }
 
-void CompileExpression(const ast::Expression& expression,
-                       std::ostream* output) {
-  expression.visit([&](const auto& node) { CompileExpression(node, output); });
+void Compiler::CompileAnyExpression(std::string_view variable,
+                                    const ast::Expression& expression,
+                                    int indent) {
+  expression.visit(
+      [&](const auto& node) { CompileExpression(variable, node, indent); });
 }
 
-void CompileStatement(const ast::DefineVariable& definition,
-                      std::ostream* output, int indent) {
-  *output << util::Spaces{indent};
-  PrintType(definition.variable.type.value(), output);
-  *output << " ";
-  CompileExpression(definition.variable, output);
-  *output << " = ";
-  CompileExpression(definition.value, output);
-  *output << ";\n";
+void Compiler::CompileStatement(const ast::DefineVariable& definition,
+                                int indent) {
+  const auto& type_name = type_names_.at(*definition.variable.type);
+  *output_ << util::Spaces{indent} << type_name << " gel_"
+           << definition.variable.name << ";\n";
+  CompileAnyExpression("gel_" + definition.variable.name, definition.value,
+                       indent);
 }
 
-void CompileStatement(const ast::Assign& assignment, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent};
-  CompileExpression(assignment.variable, output);
-  *output << " = ";
-  CompileExpression(assignment.value, output);
-  *output << ";\n";
+void Compiler::CompileStatement(const ast::Assign& assignment, int indent) {
+  CompileAnyExpression("gel_" + assignment.variable.name, assignment.value,
+                       indent);
 }
 
-void CompileStatement(const ast::DoFunction& do_function, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent};
-  CompileExpression(do_function.function_call, output);
-  *output << ";\n";
+void Compiler::CompileStatement(const ast::DoFunction& do_function,
+                                int indent) {
+  auto ignored_result = NextIdentifier();
+  const auto& result_type_name =
+      type_names_.at(*do_function.function_call.type);
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << result_type_name << " "
+           << ignored_result << ";\n";
+  CompileExpression(ignored_result, do_function.function_call, indent + 2);
+  *output_ << util::Spaces{indent} << "}\n";
 }
 
-void CompileStatement(const ast::If& if_statement, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent} << "if (";
-  CompileExpression(if_statement.condition, output);
-  *output << ") {\n";
-  CompileStatement(if_statement.if_true, output, indent + 2);
-  *output << util::Spaces{indent} << "} else {\n";
-  CompileStatement(if_statement.if_false, output, indent + 2);
-  *output << util::Spaces{indent} << "}\n";
+void Compiler::CompileStatement(const ast::If& if_statement, int indent) {
+  auto condition = NextIdentifier();
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << "bool " << condition << ";\n";
+  CompileAnyExpression(condition, if_statement.condition, indent + 2);
+  *output_ << util::Spaces{indent + 2} << "if (" << condition << ") {\n";
+  CompileStatement(if_statement.if_true, indent + 4);
+  *output_ << util::Spaces{indent + 2} << "} else {\n";
+  CompileStatement(if_statement.if_false, indent + 4);
+  *output_ << util::Spaces{indent + 2} << "}\n"
+           << util::Spaces{indent} << "}\n";
 }
 
-void CompileStatement(const ast::While& while_statement, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent} << "while (";
-  CompileExpression(while_statement.condition, output);
-  *output << ") {\n";
-  CompileStatement(while_statement.body, output, indent + 2);
-  *output << util::Spaces{indent} << "}\n";
+void Compiler::CompileStatement(const ast::While& while_statement, int indent) {
+  auto condition = NextIdentifier();
+  *output_ << util::Spaces{indent} << "while (true) {\n"
+           << util::Spaces{indent + 2} << "bool " << condition << ";\n";
+  CompileAnyExpression(condition, while_statement.condition, indent + 2);
+  *output_ << util::Spaces{indent + 2} << "if (!" << condition << ") break;\n";
+  CompileStatement(while_statement.body, indent + 2);
+  *output_ << util::Spaces{indent} << "}\n";
 }
 
-void CompileStatement(const ast::ReturnVoid&, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent} << "return;\n";
+void Compiler::CompileStatement(const ast::ReturnVoid&, int indent) {
+  *output_ << util::Spaces{indent} << "return;\n";
 }
 
-void CompileStatement(const ast::Return& return_statement, std::ostream* output,
-                      int indent) {
-  *output << util::Spaces{indent} << "return ";
-  CompileExpression(return_statement.value, output);
-  *output << ";\n";
+void Compiler::CompileStatement(const ast::Return& return_statement,
+                                int indent) {
+  auto result = NextIdentifier();
+  const auto& result_type_name =
+      type_names_.at(*GetMeta(return_statement.value).type);
+  *output_ << util::Spaces{indent} << "{\n"
+           << util::Spaces{indent + 2} << result_type_name << " " << result
+           << ";\n";
+  CompileAnyExpression(result, return_statement.value, indent + 2);
+  *output_ << util::Spaces{indent + 2} << "return " << result << ";\n"
+           << util::Spaces{indent} << "}\n";
 }
 
-void CompileStatement(const std::vector<ast::Statement>& statements,
-                      std::ostream* output, int indent) {
+void Compiler::CompileStatement(const std::vector<ast::Statement>& statements,
+                                int indent) {
   for (const auto& statement : statements)
-    CompileStatement(statement, output, indent);
+    CompileAnyStatement(statement, indent);
 }
 
-void CompileStatement(const ast::Statement& statement, std::ostream* output,
-                      int indent) {
-  statement.visit([&](const auto& x) { CompileStatement(x, output, indent); });
+void Compiler::CompileAnyStatement(const ast::Statement& statement,
+                                   int indent) {
+  statement.visit([&](const auto& x) { CompileStatement(x, indent); });
 }
 
-void CompileTopLevel(const ast::DefineFunction& definition,
-                     std::ostream* output) {
+void Compiler::CompileTopLevel(const ast::DefineFunction& definition) {
   const types::Function* type =
       definition.function.type.value().get_if<types::Function>();
-  PrintType(type->return_type, output);
-  *output << " ";
-  CompileExpression(definition.function, output);
-  *output << "(";
+  const auto& return_type_name = type_names_.at(type->return_type);
+  *output_ << return_type_name << " gel_" << definition.function.name << "(";
   bool first = true;
   for (const auto& parameter : definition.parameters) {
     if (first) {
       first = false;
     } else {
-      *output << ", ";
+      *output_ << ", ";
     }
-    PrintType(parameter.type.value(), output);
-    *output << " ";
-    CompileExpression(parameter, output);
+    const auto& parameter_type_name = type_names_.at(*parameter.type);
+    *output_ << parameter_type_name << " gel_" << parameter.name;
   }
-  *output << ") {\n";
-  CompileStatement(definition.body, output, 2);
-  *output << "}\n";
+  *output_ << ") {\n";
+  CompileStatement(definition.body, 2);
+  *output_ << "}\n";
 }
 
-void CompileTopLevel(const std::vector<ast::DefineFunction>& definitions,
-                     std::ostream* output) {
+void Compiler::CompileTopLevel(
+    const std::vector<ast::DefineFunction>& definitions) {
   bool first = true;
   for (const auto& definition : definitions) {
     if (first) {
       first = false;
     } else {
-      *output << "\n";
+      *output_ << "\n";
     }
-    CompileTopLevel(definition, output);
+    CompileTopLevel(definition);
   }
 }
 
-void CompileTopLevel(const ast::TopLevel& top_level, std::ostream* output) {
-  top_level.visit([&](const auto& x) { CompileTopLevel(x, output); });
+void Compiler::CompileAnyTopLevel(const ast::TopLevel& top_level) {
+  top_level.visit([&](const auto& x) { CompileTopLevel(x); });
+}
+
+std::string Compiler::NextIdentifier() {
+  auto id = next_id_++;
+  return "gel" + std::to_string(id);
 }
 
 }  // namespace
 
-void Compile(const ast::TopLevel& top_level, std::ostream* output) {
+void Compile(const analysis::GlobalContext& context,
+             const ast::TopLevel& top_level, std::ostream* output) {
+  Compiler compiler{output};
   *output << kHeader;
-  CompileTopLevel(top_level, output);
+  for (const auto& type : context.types) compiler.DeclareAnyType(type);
+  compiler.CompileAnyTopLevel(top_level);
   *output << kFooter;
 }
 
