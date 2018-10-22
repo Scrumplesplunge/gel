@@ -66,5 +66,3 @@ void substitute(std::ostream& output, std::string_view format,
                 const std::initializer_list<Substitution>& substitutions);
 
 }  // namespace util
-
-#include "util.inl.h"
