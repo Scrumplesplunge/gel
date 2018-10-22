@@ -168,7 +168,7 @@ void Compiler::CompileExpression(std::string_view variable,
            << ".data = " << temp << ",\n" << util::Spaces{indent + 4}
            << ".size = " << array.parts.size() << ",\n"
            << util::Spaces{indent + 2} << "};\n"
-           << util::Spaces{indent} << "}";
+           << util::Spaces{indent} << "}\n";
 }
 
 void Compiler::CompileExpression(std::string_view variable,
