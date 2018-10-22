@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <string_view>
 
 namespace util {
 
@@ -56,4 +57,14 @@ struct is_one_of {
 template <typename T, typename... Options>
 constexpr bool is_one_of_v = is_one_of<T, Options...>::value;
 
+struct Substitution {
+  std::string_view variable;
+  std::string_view value;
+};
+
+void substitute(std::ostream& output, std::string_view format,
+                const std::initializer_list<Substitution>& substitutions);
+
 }  // namespace util
+
+#include "util.inl.h"
