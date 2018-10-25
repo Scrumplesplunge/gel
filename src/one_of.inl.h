@@ -96,6 +96,6 @@ bool operator!=(const T& left, const one_of<Children...>& right) {
 template <typename... Children>
 std::ostream& operator<<(std::ostream& output,
                          const one_of<Children...>& value) {
-  value.visit([&](auto x) { output << x; });
+  value.visit([&](const auto& x) { output << x; });
   return output;
 }

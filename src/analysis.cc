@@ -246,16 +246,18 @@ std::optional<AnnotatedAst::Logical> FunctionChecker::CheckExpression(
 std::optional<AnnotatedAst::FunctionCall> FunctionChecker::CheckExpression(
     const ParsedAst::FunctionCall& call) {
   std::vector<AnnotatedAst::Expression> arguments;
-  bool error = false;
-  for (const auto& argument : call.arguments) {
-    auto result = CheckAnyExpression(argument);
-    if (result.has_value()) {
-      arguments.emplace_back(std::move(*result));
-    } else {
-      error = true;
+  {
+    bool error = false;
+    for (const auto& argument : call.arguments) {
+      auto result = CheckAnyExpression(argument);
+      if (result.has_value()) {
+        arguments.emplace_back(std::move(*result));
+      } else {
+        error = true;
+      }
     }
+    if (error) return std::nullopt;
   }
-  if (error) return std::nullopt;
   assert(arguments.size() == call.arguments.size());
 
   auto* entry = scope_->Lookup(call.function);
@@ -286,15 +288,19 @@ std::optional<AnnotatedAst::FunctionCall> FunctionChecker::CheckExpression(
     return std::nullopt;
   }
 
-  for (std::size_t i = 0; i < arguments.size(); i++) {
-    auto arg_type = AnnotatedAst::GetMeta(arguments[i]).type;
-    if (arg_type != type->parameters[i]) {
-      checker_->Error(ParsedAst::GetMeta(call.arguments[i]).location)
-          << "Type mismatch for parameter " << util::Detail(i) << " of call to "
-          << util::Detail(call.function) << ". Expected type is "
-          << util::Detail(type->parameters[i]) << " but the actual type is "
-          << util::Detail(arg_type) << ".";
+  {
+    bool error = false;
+    for (std::size_t i = 0; i < arguments.size(); i++) {
+      auto arg_type = AnnotatedAst::GetMeta(arguments[i]).type;
+      if (arg_type != type->parameters[i]) {
+        checker_->Error(ParsedAst::GetMeta(call.arguments[i]).location)
+            << "Type mismatch for parameter " << util::Detail(i)
+            << " of call to " << util::Detail(call.function)
+            << ". Expected type is " << util::Detail(type->parameters[i])
+            << " but the actual type is " << util::Detail(arg_type) << ".";
+      }
     }
+    if (error) return std::nullopt;
   }
   return AnnotatedAst::FunctionCall{
       {type->return_type}, call.function, std::move(arguments)};
@@ -408,10 +414,9 @@ std::optional<AnnotatedAst::DoFunction> FunctionChecker::CheckStatement(
     const ParsedAst::DoFunction& do_function) {
   auto call = CheckExpression(do_function.function_call);
   if (!call.has_value()) return std::nullopt;
-  const auto& type = AnnotatedAst::GetMeta(*call).type;
-  if (type != types::Void{}) {
+  if (call->type != types::Void{}) {
     checker_->Warning(do_function.location)
-        << "Discarding return value of type " << util::Detail(type)
+        << "Discarding return value of type " << util::Detail(call->type)
         << " in call to " << util::Detail(do_function.function_call.function)
         << ".";
   }
