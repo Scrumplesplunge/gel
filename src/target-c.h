@@ -7,7 +7,8 @@
 
 namespace target::c {
 
-void Compile(const analysis::GlobalContext& context,
-             const ast::TopLevel& top_level, std::ostream* output);
+void Compile(const std::vector<types::Type>& types,
+             const analysis::AnnotatedAst::TopLevel& top_level,
+             std::ostream* output);
 
 }  // namespace target::c

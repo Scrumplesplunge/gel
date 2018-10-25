@@ -13,139 +13,141 @@
 
 namespace ast {
 
-struct Identifier;
-struct Boolean;
-struct Integer;
-struct ArrayLiteral;
-struct Arithmetic;
-struct Compare;
-struct Logical;
-struct FunctionCall;
-struct LogicalNot;
-using Expression =
-    one_of<Identifier, Boolean, Integer, ArrayLiteral, Arithmetic, Compare,
-           Logical, FunctionCall, LogicalNot>;
-
-struct AnyExpression {
-  Reader::Location location;
-  std::optional<types::Type> type = std::nullopt;
+enum class Arithmetic {
+  ADD,
+  DIVIDE,
+  MULTIPLY,
+  SUBTRACT,
 };
 
-struct Identifier : AnyExpression {
-  std::string name;
+enum class Compare {
+  EQUAL,
+  GREATER_OR_EQUAL,
+  GREATER_THAN,
+  LESS_OR_EQUAL,
+  LESS_THAN,
+  NOT_EQUAL,
 };
 
-struct Boolean : AnyExpression {
-  bool value;
+enum class Logical {
+  AND,
+  OR,
 };
 
-struct Integer : AnyExpression {
-  std::int64_t value;
-};
+template <typename Metadata>
+struct Ast {
+  using ExpressionMetadata = typename Metadata::Expression;
+  using StatementMetadata = typename Metadata::Statement;
+  using TopLevelMetadata = typename Metadata::TopLevel;
 
-struct ArrayLiteral : AnyExpression {
-  std::vector<Expression> parts;
-};
+  struct Identifier;
+  struct Boolean;
+  struct Integer;
+  struct ArrayLiteral;
+  struct Arithmetic;
+  struct Compare;
+  struct Logical;
+  struct FunctionCall;
+  struct LogicalNot;
+  using Expression =
+      one_of<Identifier, Boolean, Integer, ArrayLiteral, Arithmetic, Compare,
+             Logical, FunctionCall, LogicalNot>;
 
-struct Arithmetic : AnyExpression {
-  enum Operation {
-    ADD,
-    DIVIDE,
-    MULTIPLY,
-    SUBTRACT,
+  struct Identifier : ExpressionMetadata {
+    std::string name;
   };
-  Operation operation;
-  Expression left, right;
-};
 
-struct Compare : AnyExpression {
-  enum Operation {
-    EQUAL,
-    GREATER_OR_EQUAL,
-    GREATER_THAN,
-    LESS_OR_EQUAL,
-    LESS_THAN,
-    NOT_EQUAL,
+  struct Boolean : ExpressionMetadata {
+    bool value;
   };
-  Operation operation;
-  Expression left, right;
-};
 
-struct Logical : AnyExpression {
-  enum Operation {
-    AND,
-    OR,
+  struct Integer : ExpressionMetadata {
+    std::int64_t value;
   };
-  Operation operation;
-  Expression left, right;
-};
 
-struct FunctionCall : AnyExpression {
-  Identifier function;
-  std::vector<Expression> arguments;
-};
+  struct ArrayLiteral : ExpressionMetadata {
+    std::vector<Expression> parts;
+  };
 
-struct LogicalNot : AnyExpression {
-  Expression argument;
-};
+  struct Arithmetic : ExpressionMetadata {
+    ::ast::Arithmetic operation;
+    Expression left, right;
+  };
 
-const AnyExpression& GetMeta(const Expression& expression);
+  struct Compare : ExpressionMetadata {
+    ::ast::Compare operation;
+    Expression left, right;
+  };
 
-struct DefineVariable;
-struct Assign;
-struct DoFunction;
-struct If;
-struct While;
-struct ReturnVoid;
-struct Return;
-using Statement =
-    one_of<DefineVariable, Assign, DoFunction, If, While, ReturnVoid, Return>;
+  struct Logical : ExpressionMetadata {
+    ::ast::Logical operation;
+    Expression left, right;
+  };
 
-struct AnyStatement {
-  Reader::Location location;
-};
+  struct FunctionCall : ExpressionMetadata {
+    std::string function;
+    std::vector<Expression> arguments;
+  };
 
-struct DefineVariable : AnyStatement {
-  ast::Identifier variable;
-  Expression value;
-};
+  struct LogicalNot : ExpressionMetadata {
+    Expression argument;
+  };
 
-struct Assign : AnyStatement {
-  ast::Identifier variable;
-  Expression value;
-};
+  struct DefineVariable;
+  struct Assign;
+  struct DoFunction;
+  struct If;
+  struct While;
+  struct ReturnVoid;
+  struct Return;
+  using Statement =
+      one_of<DefineVariable, Assign, DoFunction, If, While, ReturnVoid, Return>;
 
-struct DoFunction : AnyStatement {
-  FunctionCall function_call;
-};
+  struct DefineVariable : StatementMetadata {
+    Identifier variable;
+    Expression value;
+  };
 
-struct If : AnyStatement {
-  Expression condition;
-  std::vector<Statement> if_true, if_false;
-};
+  struct Assign : StatementMetadata {
+    Identifier variable;
+    Expression value;
+  };
 
-struct While : AnyStatement {
-  Expression condition;
-  std::vector<Statement> body;
-};
+  struct DoFunction : StatementMetadata {
+    FunctionCall function_call;
+  };
 
-struct ReturnVoid : AnyStatement {};
+  struct If : StatementMetadata {
+    Expression condition;
+    std::vector<Statement> if_true, if_false;
+  };
 
-struct Return : AnyStatement {
-  Expression value;
-};
+  struct While : StatementMetadata {
+    Expression condition;
+    std::vector<Statement> body;
+  };
 
-struct DefineFunction;
-using TopLevel = one_of<DefineFunction, std::vector<DefineFunction>>;
+  struct ReturnVoid : StatementMetadata {};
 
-struct AnyTopLevel {
-  Reader::Location location;
-};
+  struct Return : StatementMetadata {
+    Expression value;
+  };
 
-struct DefineFunction : AnyTopLevel {
-  ast::Identifier function;
-  std::vector<ast::Identifier> parameters;
-  std::vector<Statement> body;
+  struct DefineFunction;
+  using TopLevel = one_of<DefineFunction, std::vector<DefineFunction>>;
+
+  struct DefineFunction : TopLevelMetadata {
+    types::Function type;
+    std::string name;
+    std::vector<Identifier> parameters;
+    std::vector<Statement> body;
+  };
+
+  static const ExpressionMetadata& GetMeta(const Expression& expression);
+  static const StatementMetadata& GetMeta(const Statement& statement);
+  static const TopLevelMetadata& GetMeta(const TopLevel& top_level);
 };
 
 }  // namespace ast
+
+#include "ast.inl.h"

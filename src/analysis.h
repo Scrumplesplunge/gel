@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "parser.h"
 #include "reader.h"
 
 #include <map>
@@ -11,13 +12,23 @@
 
 namespace analysis {
 
-struct GlobalContext;
+struct AnnotatedMetadata {
+  struct Expression {
+    types::Type type;
+  };
+  struct Statement {};
+  struct TopLevel {};
+};
+
+using AnnotatedAst = ::ast::Ast<AnnotatedMetadata>;
+
+class Checker;
 
 class MessageBuilder {
  public:
-  MessageBuilder(GlobalContext* context, Message::Type type,
+  MessageBuilder(Checker* checker, Message::Type type,
                  Reader::Location location)
-      : context_(context), type_(type), location_(location) {}
+      : checker_(checker), type_(type), location_(location) {}
   ~MessageBuilder();
   MessageBuilder(const MessageBuilder&) = delete;
   MessageBuilder(MessageBuilder&&) = delete;
@@ -29,39 +40,25 @@ class MessageBuilder {
   }
 
  private:
-  GlobalContext* const context_;
+  Checker* const checker_;
   const Message::Type type_;
   const Reader::Location location_;
   std::ostringstream text_;
 };
 
 struct Operators {
-  using ArithmeticKey = std::tuple<ast::Arithmetic::Operation, types::Type>;
+  using ArithmeticKey = std::tuple<ast::Arithmetic, types::Type>;
   std::set<ArithmeticKey> arithmetic;
   std::set<types::Type> equality_comparable;
   std::set<types::Type> ordered;
-};
-
-struct GlobalContext {
-  const Operators operators;
-  std::vector<Message> diagnostics;
-  std::vector<types::Type> types;
-  void AddType(const types::Type& type);
-  MessageBuilder Error(Reader::Location location);
-  MessageBuilder Warning(Reader::Location location);
-  MessageBuilder Note(Reader::Location location);
-};
-
-struct FunctionContext {
-  GlobalContext* global_context;
-  ast::Identifier this_function;
-  types::Function type;
 };
 
 class Scope {
  public:
   struct Entry {
     Reader::Location location;
+    // The type is present unless the expression that defined this variable
+    // contained an an error.
     std::optional<types::Type> type;
   };
   explicit Scope(Scope* parent = nullptr) : parent_(parent) {}
@@ -74,35 +71,91 @@ class Scope {
   std::map<std::string, Entry, std::less<>> bindings_;
 };
 
-std::tuple<GlobalContext, Scope> DefaultState();
+class Checker {
+ public:
+  Checker();
 
-ast::Identifier Check(const ast::Identifier&, FunctionContext*, const Scope*);
-ast::Boolean Check(const ast::Boolean&, FunctionContext*, const Scope*);
-ast::Integer Check(const ast::Integer&, FunctionContext*, const Scope*);
-ast::ArrayLiteral Check(const ast::ArrayLiteral&, FunctionContext*,
-                        const Scope*);
-ast::Arithmetic Check(const ast::Arithmetic&, FunctionContext*, const Scope*);
-ast::Compare Check(const ast::Compare&, FunctionContext*, const Scope*);
-ast::Logical Check(const ast::Logical&, FunctionContext*, const Scope*);
-ast::FunctionCall Check(const ast::FunctionCall&, FunctionContext*,
-                        const Scope*);
-ast::LogicalNot Check(const ast::LogicalNot&, FunctionContext*, const Scope*);
-ast::Expression Check(const ast::Expression&, FunctionContext*, const Scope*);
+  std::optional<AnnotatedAst::DefineFunction> CheckTopLevel(
+      const ParsedAst::DefineFunction&);
+  std::optional<std::vector<AnnotatedAst::DefineFunction>> CheckTopLevel(
+      const std::vector<ParsedAst::DefineFunction>&);
+  std::optional<AnnotatedAst::TopLevel> CheckAnyTopLevel(
+      const ParsedAst::TopLevel&);
 
-ast::DefineVariable Check(const ast::DefineVariable&, FunctionContext*, Scope*);
-ast::Assign Check(const ast::Assign&, FunctionContext*, Scope*);
-ast::DoFunction Check(const ast::DoFunction&, FunctionContext*, Scope*);
-ast::If Check(const ast::If&, FunctionContext*, Scope*);
-ast::While Check(const ast::While&, FunctionContext*, Scope*);
-ast::ReturnVoid Check(const ast::ReturnVoid&, FunctionContext*, Scope*);
-ast::Return Check(const ast::Return&, FunctionContext*, Scope*);
-std::vector<ast::Statement> Check(const std::vector<ast::Statement>&,
-                                  FunctionContext*, Scope*);
-ast::Statement Check(const ast::Statement&, FunctionContext*, Scope*);
+  void AddType(const types::Type& type);
+  MessageBuilder Error(Reader::Location location);
+  MessageBuilder Warning(Reader::Location location);
+  MessageBuilder Note(Reader::Location location);
 
-ast::DefineFunction Check(const ast::DefineFunction&, GlobalContext*, Scope*);
-std::vector<ast::DefineFunction> Check(const std::vector<ast::DefineFunction>&,
-                                       GlobalContext*, Scope*);
-ast::TopLevel Check(const ast::TopLevel&, GlobalContext*, Scope*);
+  std::vector<Message> ConsumeDiagnostics() { return std::move(diagnostics_); }
+  std::vector<types::Type> ConsumeTypes() { return std::move(types_); }
+
+ private:
+  friend class MessageBuilder;
+  friend class FunctionChecker;
+
+  const Operators operators_;
+  std::vector<Message> diagnostics_;
+  std::vector<types::Type> types_;
+  Scope scope_;
+};
+
+class FunctionChecker {
+ public:
+  FunctionChecker(types::Function type, std::string this_function,
+                  Checker* checker, Scope* scope)
+      : type_(std::move(type)),
+        this_function_(std::move(this_function)),
+        checker_(checker), scope_(scope) {}
+
+  std::optional<AnnotatedAst::Identifier> CheckExpression(
+      const ParsedAst::Identifier&);
+  std::optional<AnnotatedAst::Boolean> CheckExpression(
+      const ParsedAst::Boolean&);
+  std::optional<AnnotatedAst::Integer> CheckExpression(
+      const ParsedAst::Integer&);
+  std::optional<AnnotatedAst::ArrayLiteral> CheckExpression(
+      const ParsedAst::ArrayLiteral&);
+  std::optional<AnnotatedAst::Arithmetic> CheckExpression(
+      const ParsedAst::Arithmetic&);
+  std::optional<AnnotatedAst::Compare> CheckExpression(
+      const ParsedAst::Compare&);
+  std::optional<AnnotatedAst::Logical> CheckExpression(
+      const ParsedAst::Logical&);
+  std::optional<AnnotatedAst::FunctionCall> CheckExpression(
+      const ParsedAst::FunctionCall&);
+  std::optional<AnnotatedAst::LogicalNot> CheckExpression(
+      const ParsedAst::LogicalNot&);
+  std::optional<AnnotatedAst::Expression> CheckAnyExpression(
+      const ParsedAst::Expression&);
+
+  std::optional<AnnotatedAst::DefineVariable> CheckStatement(
+      const ParsedAst::DefineVariable&);
+  std::optional<AnnotatedAst::Assign> CheckStatement(const ParsedAst::Assign&);
+  std::optional<AnnotatedAst::DoFunction> CheckStatement(
+      const ParsedAst::DoFunction&);
+  std::optional<AnnotatedAst::If> CheckStatement(const ParsedAst::If&);
+  std::optional<AnnotatedAst::While> CheckStatement(const ParsedAst::While&);
+  std::optional<AnnotatedAst::ReturnVoid> CheckStatement(
+      const ParsedAst::ReturnVoid&);
+  std::optional<AnnotatedAst::Return> CheckStatement(const ParsedAst::Return&);
+  std::optional<std::vector<AnnotatedAst::Statement>> CheckStatement(
+      const std::vector<ParsedAst::Statement>&);
+  std::optional<AnnotatedAst::Statement> CheckAnyStatement(
+      const ParsedAst::Statement&);
+
+ private:
+  types::Function type_;
+  std::string this_function_;
+  Checker* checker_;
+  Scope* scope_;
+};
+
+struct Result {
+  std::vector<types::Type> required_types;
+  std::optional<AnnotatedAst::TopLevel> annotated_ast;
+  std::vector<Message> diagnostics;
+};
+Result Check(const ParsedAst::TopLevel&);
 
 }  // namespace analysis

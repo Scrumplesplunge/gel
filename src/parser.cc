@@ -3,8 +3,8 @@
 #include <algorithm>
 
 constexpr const char* kReservedIdentifiers[] = {
-    "boolean", "else", "function", "if", "integer", "let", "return", "while",
-    "true", "false",
+    "boolean", "else",   "function", "if",   "integer",
+    "let",     "return", "while",    "true", "false",
 };
 
 constexpr int kSpacesPerIndent = 2;
@@ -19,7 +19,7 @@ types::Type Parser::ParseType() {
   throw CompileError{location, "Invalid type name: " + std::string{name}};
 }
 
-ast::Identifier Parser::ParseIdentifier() {
+ParsedAst::Identifier Parser::ParseIdentifier() {
   Reader::Location location = reader_->location();
   std::string_view name = IdentifierPrefix();
   auto j = std::find(std::begin(kReservedIdentifiers),
@@ -31,10 +31,10 @@ ast::Identifier Parser::ParseIdentifier() {
   if (name.empty() || !std::isalpha(name[0]))
     throw CompileError{location, "Invalid identifier: " + std::string{name}};
   reader_->remove_prefix(name.length());
-  return ast::Identifier{{location}, std::string{name}};
+  return ParsedAst::Identifier{{location}, std::string{name}};
 }
 
-ast::Integer Parser::ParseInteger() {
+ParsedAst::Integer Parser::ParseInteger() {
   auto location = reader_->location();
   const bool negative = reader_->Consume("-");
   auto begin = std::begin(*reader_);
@@ -52,14 +52,14 @@ ast::Integer Parser::ParseInteger() {
   }
   if (!negative) value = -value;
   reader_->remove_prefix(length);
-  return ast::Integer{{location}, value};
+  return ParsedAst::Integer{{location}, value};
 }
 
-std::vector<ast::Expression> Parser::ParseExpressionList(std::string_view begin,
-                                                         std::string_view end) {
+std::vector<ParsedAst::Expression> Parser::ParseExpressionList(
+    std::string_view begin, std::string_view end) {
   CheckConsume(begin);
   if (reader_->Consume(end)) return {};
-  std::vector<ast::Expression> arguments;
+  std::vector<ParsedAst::Expression> arguments;
   while (true) {
     arguments.push_back(ParseExpression());
     CheckNotEnd();
@@ -68,7 +68,7 @@ std::vector<ast::Expression> Parser::ParseExpressionList(std::string_view begin,
   }
 }
 
-ast::Expression Parser::ParseTerm() {
+ParsedAst::Expression Parser::ParseTerm() {
   // Check if this term is a nested expression.
   auto location = reader_->location();
   if (reader_->Consume("(")) {
@@ -83,19 +83,19 @@ ast::Expression Parser::ParseTerm() {
     // Positive or negative integers.
     return ParseInteger();
   } else if (lookahead == '[') {
-    return ast::ArrayLiteral{{location}, ParseExpressionList("[", "]")};
+    return ParsedAst::ArrayLiteral{{location}, ParseExpressionList("[", "]")};
   } else if (std::isalpha(lookahead)) {
     auto candidate = IdentifierPrefix();
     if (candidate == "true" || candidate == "false") {
       reader_->remove_prefix(candidate.length());
-      return ast::Boolean{{location}, candidate == "true"};
+      return ParsedAst::Boolean{{location}, candidate == "true"};
     }
     // Variables or function calls.
     auto identifier = ParseIdentifier();
     if (!reader_->empty() && reader_->front() == '(') {
       auto arguments = ParseExpressionList("(", ")");
-      return ast::FunctionCall{
-          {location}, std::move(identifier), std::move(arguments)};
+      return ParsedAst::FunctionCall{
+          {location}, std::move(identifier.name), std::move(arguments)};
     } else {
       return identifier;
     }
@@ -104,29 +104,29 @@ ast::Expression Parser::ParseTerm() {
   }
 }
 
-ast::Expression Parser::ParseUnary() {
+ParsedAst::Expression Parser::ParseUnary() {
   auto location = reader_->location();
   if (reader_->Consume("!")) {
-    return ast::LogicalNot{{location}, ParseUnary()};
+    return ParsedAst::LogicalNot{{location}, ParseUnary()};
   } else {
     return ParseTerm();
   }
 }
 
-ast::Expression Parser::ParseProduct() {
+ParsedAst::Expression Parser::ParseProduct() {
   auto left = ParseUnary();
   while (true) {
     if (reader_->starts_with(" * ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Arithmetic{
+      left = ParsedAst::Arithmetic{
           {location}, ast::Arithmetic::MULTIPLY, std::move(left), ParseTerm()};
     } else if (reader_->starts_with(" / ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Arithmetic{
+      left = ParsedAst::Arithmetic{
           {location}, ast::Arithmetic::DIVIDE, std::move(left), ParseTerm()};
     } else {
       return left;
@@ -134,82 +134,82 @@ ast::Expression Parser::ParseProduct() {
   }
 }
 
-ast::Expression Parser::ParseSum() {
+ParsedAst::Expression Parser::ParseSum() {
   auto left = ParseProduct();
   while (true) {
     if (reader_->starts_with(" + ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Arithmetic{
+      left = ParsedAst::Arithmetic{
           {location}, ast::Arithmetic::ADD, left, ParseProduct()};
     } else if (reader_->starts_with(" - ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(2);
-      left = ast::Arithmetic{{location},
-                             ast::Arithmetic::SUBTRACT,
-                             std::move(left),
-                             ParseProduct()};
+      left = ParsedAst::Arithmetic{{location},
+                                   ast::Arithmetic::SUBTRACT,
+                                   std::move(left),
+                                   ParseProduct()};
     } else {
       return left;
     }
   }
 }
 
-ast::Expression Parser::ParseComparison() {
+ParsedAst::Expression Parser::ParseComparison() {
   auto left = ParseSum();
   if (reader_->starts_with(" == ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Compare{
+    return ParsedAst::Compare{
         {location}, ast::Compare::EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" != ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Compare{
+    return ParsedAst::Compare{
         {location}, ast::Compare::NOT_EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" <= ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Compare{
+    return ParsedAst::Compare{
         {location}, ast::Compare::LESS_OR_EQUAL, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" < ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(2);
-    return ast::Compare{
+    return ParsedAst::Compare{
         {location}, ast::Compare::LESS_THAN, std::move(left), ParseSum()};
   } else if (reader_->starts_with(" >= ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(3);
-    return ast::Compare{{location},
-                        ast::Compare::GREATER_OR_EQUAL,
-                        std::move(left),
-                        ParseSum()};
+    return ParsedAst::Compare{{location},
+                              ast::Compare::GREATER_OR_EQUAL,
+                              std::move(left),
+                              ParseSum()};
   } else if (reader_->starts_with(" > ")) {
     reader_->remove_prefix(1);
     auto location = reader_->location();
     reader_->remove_prefix(2);
-    return ast::Compare{
+    return ParsedAst::Compare{
         {location}, ast::Compare::GREATER_THAN, std::move(left), ParseSum()};
   } else {
     return left;
   }
 }
 
-ast::Expression Parser::ParseConjunction() {
+ParsedAst::Expression Parser::ParseConjunction() {
   auto left = ParseComparison();
   while (true) {
     if (reader_->starts_with(" && ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(3);
-      left = ast::Logical{
+      left = ParsedAst::Logical{
           {location}, ast::Logical::AND, std::move(left), ParseComparison()};
     } else {
       return left;
@@ -217,14 +217,14 @@ ast::Expression Parser::ParseConjunction() {
   }
 }
 
-ast::Expression Parser::ParseDisjunction() {
+ParsedAst::Expression Parser::ParseDisjunction() {
   auto left = ParseConjunction();
   while (true) {
     if (reader_->starts_with(" || ")) {
       reader_->remove_prefix(1);
       auto location = reader_->location();
       reader_->remove_prefix(3);
-      left = ast::Logical{
+      left = ParsedAst::Logical{
           {location}, ast::Logical::OR, std::move(left), ParseConjunction()};
     } else {
       return left;
@@ -232,41 +232,41 @@ ast::Expression Parser::ParseDisjunction() {
   }
 }
 
-ast::Expression Parser::ParseExpression() { return ParseDisjunction(); }
+ParsedAst::Expression Parser::ParseExpression() { return ParseDisjunction(); }
 
-ast::DefineVariable Parser::ParseVariableDefinition() {
+ParsedAst::DefineVariable Parser::ParseVariableDefinition() {
   CheckConsume("let ");
   auto identifier = ParseIdentifier();
   CheckConsume(" ");
   auto location = reader_->location();
   CheckConsume("= ");
   auto value = ParseExpression();
-  return ast::DefineVariable{
+  return ParsedAst::DefineVariable{
       {location}, std::move(identifier), std::move(value)};
 }
 
-ast::Assign Parser::ParseAssignment() {
+ParsedAst::Assign Parser::ParseAssignment() {
   auto identifier = ParseIdentifier();
   CheckConsume(" ");
   auto location = reader_->location();
   CheckConsume("= ");
   auto value = ParseExpression();
-  return ast::Assign{{location}, std::move(identifier), std::move(value)};
+  return ParsedAst::Assign{{location}, std::move(identifier), std::move(value)};
 }
 
-ast::DoFunction Parser::ParseDoFunction() {
+ParsedAst::DoFunction Parser::ParseDoFunction() {
   auto do_location = reader_->location();
   CheckConsume("do ");
   auto call_location = reader_->location();
   auto function = ParseIdentifier();
   auto arguments = ParseExpressionList("(", ")");
-  return ast::DoFunction{
+  return ParsedAst::DoFunction{
       {do_location},
-      ast::FunctionCall{
-          {call_location}, std::move(function), std::move(arguments)}};
+      ParsedAst::FunctionCall{
+          {call_location}, std::move(function.name), std::move(arguments)}};
 }
 
-ast::If Parser::ParseIfStatement(std::size_t indent) {
+ParsedAst::If Parser::ParseIfStatement(std::size_t indent) {
   auto location = reader_->location();
   CheckConsume("if (");
   auto condition = ParseExpression();
@@ -274,30 +274,32 @@ ast::If Parser::ParseIfStatement(std::size_t indent) {
   auto statements = ParseStatementBlock(indent);
   if (reader_->starts_with(" else if (")) {
     CheckConsume(" else ");
-    return ast::If{{location},
-                   std::move(condition),
-                   std::move(statements),
-                   {ParseIfStatement(indent)}};
+    return ParsedAst::If{{location},
+                         std::move(condition),
+                         std::move(statements),
+                         {ParseIfStatement(indent)}};
   } else if (reader_->Consume(" else ")) {
-    return ast::If{{location},
-                   std::move(condition),
-                   std::move(statements),
-                   ParseStatementBlock(indent)};
+    return ParsedAst::If{{location},
+                         std::move(condition),
+                         std::move(statements),
+                         ParseStatementBlock(indent)};
   } else {
-    return ast::If{{location}, std::move(condition), std::move(statements), {}};
+    return ParsedAst::If{
+        {location}, std::move(condition), std::move(statements), {}};
   }
 }
 
-ast::While Parser::ParseWhileStatement(std::size_t indent) {
+ParsedAst::While Parser::ParseWhileStatement(std::size_t indent) {
   auto location = reader_->location();
   CheckConsume("while (");
   auto condition = ParseExpression();
   CheckConsume(") ");
   auto statements = ParseStatementBlock(indent);
-  return ast::While{{location}, std::move(condition), std::move(statements)};
+  return ParsedAst::While{
+      {location}, std::move(condition), std::move(statements)};
 }
 
-ast::Statement Parser::ParseStatement(std::size_t indent) {
+ParsedAst::Statement Parser::ParseStatement(std::size_t indent) {
   ParseComment(indent);
   if (reader_->starts_with("let ")) {
     return ParseVariableDefinition();
@@ -310,22 +312,23 @@ ast::Statement Parser::ParseStatement(std::size_t indent) {
   } else if (reader_->starts_with("return\n")) {
     auto location = reader_->location();
     CheckConsume("return");
-    return ast::ReturnVoid{{location}};
+    return ParsedAst::ReturnVoid{{location}};
   } else if (reader_->Consume("return ")) {
     auto location = reader_->location();
-    return ast::Return{{location}, ParseExpression()};
+    return ParsedAst::Return{{location}, ParseExpression()};
   } else {
     return ParseAssignment();
   }
 }
 
-std::vector<ast::Statement> Parser::ParseStatementBlock(std::size_t indent) {
+std::vector<ParsedAst::Statement> Parser::ParseStatementBlock(
+    std::size_t indent) {
   CheckConsume("{");
   CheckNotEnd();
   // Empty statement blocks are just "{}", ie. without a newline.
   if (reader_->Consume("}")) return {};
   // All other blocks have multiple lines and at least one statement.
-  std::vector<ast::Statement> statements;
+  std::vector<ParsedAst::Statement> statements;
   while (true) {
     ConsumeNewline();
     ConsumeIndent(indent);
@@ -335,44 +338,42 @@ std::vector<ast::Statement> Parser::ParseStatementBlock(std::size_t indent) {
   }
 }
 
-std::vector<ast::Identifier> Parser::ParseParameterList() {
+std::tuple<std::vector<ParsedAst::Identifier>, std::vector<types::Type>>
+Parser::ParseParameterList() {
   CheckConsume("(");
   if (reader_->Consume(")")) return {};
-  std::vector<ast::Identifier> parameters;
+  std::vector<ParsedAst::Identifier> parameters;
+  std::vector<types::Type> parameter_types;
   while (true) {
     parameters.push_back(ParseIdentifier());
     CheckConsume(" : ");
-    parameters.back().type = ParseType();
+    parameter_types.push_back(ParseType());
     CheckNotEnd();
-    if (reader_->Consume(")")) return parameters;
+    if (reader_->Consume(")"))
+      return std::tuple{std::move(parameters), std::move(parameter_types)};
     CheckConsume(", ");
   }
 }
 
-ast::DefineFunction Parser::ParseFunctionDefinition() {
+ParsedAst::DefineFunction Parser::ParseFunctionDefinition() {
   ParseComment(0);
   auto location = reader_->location();
   CheckConsume("function ");
   auto identifier = ParseIdentifier();
-  auto parameters = ParseParameterList();
+  auto [parameters, parameter_types] = ParseParameterList();
   CheckConsume(" : ");
   auto return_type = ParseType();
-  std::vector<types::Type> parameter_types;
-  for (const auto& parameter : parameters)
-    parameter_types.push_back(parameter.type.value());
-  identifier.type =
-      types::Function{std::move(return_type), std::move(parameter_types)};
   CheckConsume(" ");
   auto body = ParseStatementBlock(0);
   ConsumeNewline();
-  return ast::DefineFunction{{location},
-                             std::move(identifier),
-                             std::move(parameters),
-                             std::move(body)};
+  return ParsedAst::DefineFunction{
+      {location},
+      types::Function{std::move(return_type), std::move(parameter_types)},
+      std::move(identifier.name), std::move(parameters), std::move(body)};
 }
 
-std::vector<ast::DefineFunction> Parser::ParseProgram() {
-  std::vector<ast::DefineFunction> definitions;
+std::vector<ParsedAst::DefineFunction> Parser::ParseProgram() {
+  std::vector<ParsedAst::DefineFunction> definitions;
   definitions.push_back(ParseFunctionDefinition());
   while (!reader_->empty()) {
     ConsumeNewline();

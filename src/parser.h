@@ -6,35 +6,50 @@
 #include <stdexcept>
 #include <string_view>
 
+struct ParseMetadata {
+  struct Expression {
+    Reader::Location location;
+  };
+  struct Statement {
+    Reader::Location location;
+  };
+  struct TopLevel {
+    Reader::Location location;
+  };
+};
+
+using ParsedAst = ::ast::Ast<ParseMetadata>;
+
 class Parser {
  public:
   Parser(Reader& reader) : reader_(&reader) {}
 
   types::Type ParseType();
-  ast::Identifier ParseIdentifier();
-  ast::Integer ParseInteger();
-  std::vector<ast::Expression> ParseExpressionList(std::string_view begin,
-                                                   std::string_view end);
-  ast::Expression ParseTerm();
-  ast::Expression ParseUnary();
-  ast::Expression ParseProduct();
-  ast::Expression ParseSum();
-  ast::Expression ParseComparison();
-  ast::Expression ParseConjunction();
-  ast::Expression ParseDisjunction();
-  ast::Expression ParseExpression();
+  ParsedAst::Identifier ParseIdentifier();
+  ParsedAst::Integer ParseInteger();
+  std::vector<ParsedAst::Expression> ParseExpressionList(std::string_view begin,
+                                                         std::string_view end);
+  ParsedAst::Expression ParseTerm();
+  ParsedAst::Expression ParseUnary();
+  ParsedAst::Expression ParseProduct();
+  ParsedAst::Expression ParseSum();
+  ParsedAst::Expression ParseComparison();
+  ParsedAst::Expression ParseConjunction();
+  ParsedAst::Expression ParseDisjunction();
+  ParsedAst::Expression ParseExpression();
 
-  ast::DefineVariable ParseVariableDefinition();
-  ast::Assign ParseAssignment();
-  ast::DoFunction ParseDoFunction();
-  ast::If ParseIfStatement(std::size_t indent);
-  ast::While ParseWhileStatement(std::size_t indent);
-  ast::Statement ParseStatement(std::size_t indent);
-  std::vector<ast::Statement> ParseStatementBlock(std::size_t indent);
+  ParsedAst::DefineVariable ParseVariableDefinition();
+  ParsedAst::Assign ParseAssignment();
+  ParsedAst::DoFunction ParseDoFunction();
+  ParsedAst::If ParseIfStatement(std::size_t indent);
+  ParsedAst::While ParseWhileStatement(std::size_t indent);
+  ParsedAst::Statement ParseStatement(std::size_t indent);
+  std::vector<ParsedAst::Statement> ParseStatementBlock(std::size_t indent);
 
-  std::vector<ast::Identifier> ParseParameterList();
-  ast::DefineFunction ParseFunctionDefinition();
-  std::vector<ast::DefineFunction> ParseProgram();
+  std::tuple<std::vector<ParsedAst::Identifier>, std::vector<types::Type>>
+  ParseParameterList();
+  ParsedAst::DefineFunction ParseFunctionDefinition();
+  std::vector<ParsedAst::DefineFunction> ParseProgram();
 
   void ParseComment(std::size_t indent);
 
